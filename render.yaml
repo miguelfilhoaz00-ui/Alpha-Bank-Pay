@@ -1,0 +1,72 @@
+services:
+  - type: web
+    name: copypix-bot
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /ping
+
+    envVars:
+      # ——— OBRIGATÓRIO: URL do serviço no Render (ex: https://copypix-bot.onrender.com) ———
+      - key: APP_URL
+        sync: false
+
+      # ——— Telegram ———
+      - key: CLIENT_BOT_TOKEN
+        sync: false
+      - key: ADMIN_BOT_TOKEN
+        sync: false
+      - key: ADMIN_CHAT_ID
+        sync: false
+
+      # ——— PagNet ———
+      - key: PAGNET_PUBLIC_KEY
+        sync: false
+      - key: PAGNET_SECRET_KEY
+        sync: false
+      - key: PAGNET_POSTBACK_URL
+        sync: false
+
+      # ——— FluxoPay ———
+      - key: FLUXOPAY_API_KEY
+        sync: false
+      - key: FLUXOPAY_API_SECRET
+        sync: false
+
+      # ——— PodPay ———
+      - key: PODPAY_API_KEY
+        sync: false
+      - key: PODPAY_POSTBACK_URL
+        sync: false
+
+      # ——— SharkBanking ———
+      - key: SHARKBANKING_PUBLIC_KEY
+        sync: false
+      - key: SHARKBANKING_SECRET_KEY
+        sync: false
+      - key: SHARKBANKING_POSTBACK_URL
+        sync: false
+
+      # ——— Painel ———
+      - key: PANEL_PASSWORD
+        sync: false
+
+      # ——— Servidor ———
+      - key: PORT
+        value: "3000"
+
+      # ——— Cloud Backup (OPCIONAL — para config persistir entre reinícios GRÁTIS) ———
+      # Crie conta grátis em https://upstash.com → Redis → REST API
+      # Cole aqui a URL e o Token gerados
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+
+# ——— Disco Persistente (OPCIONAL — alternativa paga ao Upstash: ~US$0.25/mês) ———
+# Se preferir pagar em vez de usar Upstash, descomente as linhas abaixo
+# e adicione DATA_DIR=/data nas envVars acima.
+#    disk:
+#      name: copypix-data
+#      mountPath: /data
+#      sizeGB: 1

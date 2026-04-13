@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CopyPix — Painel Admin</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      min-height: 100vh;
+    }
+
+    /* ── LOGIN ── */
+    #login-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: radial-gradient(ellipse at center, #161b22 0%, #0d1117 100%);
+    }
+
+    .login-box {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+    }
+
+    .login-box .logo {
+      font-size: 48px;
+      margin-bottom: 8px;
+    }
+
+    .login-box h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #58a6ff;
+      margin-bottom: 4px;
+    }
+
+    .login-box p {
+      font-size: 13px;
+      color: #8b949e;
+      margin-bottom: 28px;
+    }
+
+    .login-box input {
+      width: 100%;
+      padding: 12px 16px;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      color: #e6edf3;
+      font-size: 15px;
+      outline: none;
+      margin-bottom: 12px;
+      transition: border-color 0.2s;
+    }
+
+    .login-box input:focus { border-color: #58a6ff; }
+
+    .login-box button {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #238636, #2ea043);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .login-box button:hover { opacity: 0.85; }
+
+    .login-error {
+      color: #f85149;
+      font-size: 13px;
+      margin-top: 10px;
+      display: none;
+    }
+
+    /* ── PAINEL ── */
+    #panel-screen { display: none; }
+
+    header {
+      background: linear-gradient(135deg, #161b22 0%, #1c2128 100%);
+      border-bottom: 1px solid #30363d;
+      padding: 0 24px;
+    }
+
+    .header-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+    }
+
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 20px;
+      font-weight: 700;
+      color: #58a6ff;
+    }
+
+    .header-logo span { font-size: 28px; }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #2ea043;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .logout-btn {
+      background: transparent;
+      border: 1px solid #30363d;
+      color: #8b949e;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .logout-btn:hover { border-color: #f85149; color: #f85149; }
+
+    .main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 24px;
+    }
+
+    /* ── STATS BAR ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 32px;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .stat-value.green  { color: #2ea043; }
+    .stat-value.red    { color: #f85149; }
+    .stat-value.blue   { color: #58a6ff; }
+
+    /* ── SECTION ── */
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #30363d;
+    }
+
+    /* ── PROVIDER CARDS ── */
+    .providers-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .provider-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 20px;
+      transition: border-color 0.2s, transform 0.1s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .provider-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--accent, #58a6ff);
+    }
+
+    .provider-card:hover {
+      border-color: #484f58;
+      transform: translateY(-1px);
+    }
+
+    .provider-card.active  { border-color: #238636; }
+    .provider-card.inactive { border-color: #30363d; opacity: 0.7; }
+
+    .card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .provider-name {
+      font-size: 17px;
+      font-weight: 700;
+      color: #e6edf3;
+    }
+
+    .status-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .status-badge.on  { background: #0f2a1a; color: #2ea043; border: 1px solid #238636; }
+    .status-badge.off { background: #1c1c1c; color: #6e7681; border: 1px solid #30363d; }
+
+    .card-range {
+      font-size: 13px;
+      color: #8b949e;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .card-range strong { color: #e6edf3; }
+
+    /* ── TOGGLE SWITCH ── */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .toggle-label {
+      font-size: 13px;
+      color: #8b949e;
+    }
+
+    .toggle {
+      position: relative;
+      width: 48px;
+      height: 26px;
+      cursor: pointer;
+    }
+
+    .toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+
+    .slider {
+      position: absolute;
+      inset: 0;
+      background: #30363d;
+      border-radius: 26px;
+      transition: background 0.25s;
+    }
+
+    .slider::before {
+      content: '';
+      position: absolute;
+      width: 20px; height: 20px;
+      left: 3px; top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.25s;
+    }
+
+    .toggle input:checked + .slider { background: #238636; }
+    .toggle input:checked + .slider::before { transform: translateX(22px); }
+
+    .toggle.loading .slider { opacity: 0.5; pointer-events: none; }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 14px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #e6edf3;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      transform: translateY(80px);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      z-index: 999;
+      max-width: 320px;
+    }
+
+    #toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    #toast.success { border-left: 3px solid #2ea043; }
+    #toast.error   { border-left: 3px solid #f85149; }
+
+    /* ── FOOTER ── */
+    .footer {
+      text-align: center;
+      padding: 24px;
+      font-size: 12px;
+      color: #484f58;
+      border-top: 1px solid #21262d;
+      margin-top: 16px;
+    }
+
+    /* ── STATS PAGAMENTOS ── */
+    .pay-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .pay-stat-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .pay-stat-icon {
+      font-size: 32px;
+      line-height: 1;
+    }
+
+    .pay-stat-info { flex: 1; }
+
+    .pay-stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #2ea043;
+      line-height: 1.1;
+    }
+
+    .pay-stat-label {
+      font-size: 12px;
+      color: #8b949e;
+      margin-top: 2px;
+    }
+
+    /* ── HISTÓRICO ── */
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 32px;
+    }
+
+    .history-table th {
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 10px 14px;
+      border-bottom: 1px solid #21262d;
+    }
+
+    .history-table td {
+      padding: 12px 14px;
+      font-size: 14px;
+      border-bottom: 1px solid #21262d;
+    }
+
+    .history-table tr:last-child td { border-bottom: none; }
+
+    .history-table tr:hover td { background: #1c2128; }
+
+    .history-wrap {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 32px;
+    }
+
+    .provider-pill {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 20px;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      color: #8b949e;
+    }
+
+    .empty-history {
+      text-align: center;
+      padding: 32px;
+      color: #8b949e;
+      font-size: 14px;
+    }
+
+    /* ── RANGE EDITOR ── */
+    .range-editor {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid #21262d;
+    }
+
+    .range-editor-label {
+      font-size: 11px;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    .range-inputs {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .range-input {
+      flex: 1;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #e6edf3;
+      font-size: 13px;
+      padding: 7px 10px;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+
+    .range-input:focus { border-color: #58a6ff; }
+
+    .range-sep {
+      font-size: 12px;
+      color: #8b949e;
+      white-space: nowrap;
+    }
+
+    .save-range-btn {
+      background: #238636;
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 7px 14px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.2s;
+    }
+
+    .save-range-btn:hover { opacity: 0.8; }
+
+    @media (max-width: 600px) {
+      .header-inner { padding: 0; }
+      .main { padding: 20px 16px; }
+      .providers-grid { grid-template-columns: 1fr; }
+      .history-table th:nth-child(3),
+      .history-table td:nth-child(3) { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     LOGIN SCREEN
+══════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="logo">🤖</div>
+    <h1>CopyPix</h1>
+    <p>Painel de Administração</p>
+    <input type="password" id="password-input" placeholder="🔑 Senha de acesso" autocomplete="current-password" />
+    <button onclick="doLogin()">Entrar no Painel</button>
+    <p class="login-error" id="login-error">❌ Senha incorreta. Tente novamente.</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     PANEL SCREEN
+══════════════════════════════════════════════ -->
+<div id="panel-screen">
+  <header>
+    <div class="header-inner">
+      <div class="header-logo">
+        <span>🤖</span> CopyPix Admin
+      </div>
+      <div class="header-right">
+        <div class="status-dot" title="Bot online"></div>
+        <span style="font-size:13px; color:#8b949e">Bot Online</span>
+        <button class="logout-btn" onclick="logout()">Sair</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="main">
+
+    <!-- Stats -->
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value blue" id="stat-total">—</div>
+        <div class="stat-label">Total de Providers</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value green" id="stat-active">—</div>
+        <div class="stat-label">Ativos</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value red" id="stat-inactive">—</div>
+        <div class="stat-label">Desativados</div>
+      </div>
+    </div>
+
+    <!-- Stats de pagamentos -->
+    <div class="section-title">📊 Pagamentos de Hoje</div>
+    <div class="pay-stats-grid" id="pay-stats-grid">
+      <div class="pay-stat-card">
+        <div class="pay-stat-icon">💰</div>
+        <div class="pay-stat-info">
+          <div class="pay-stat-value" id="stat-total-valor">R$ 0,00</div>
+          <div class="pay-stat-label">Valor total recebido</div>
+        </div>
+      </div>
+      <div class="pay-stat-card">
+        <div class="pay-stat-icon">✅</div>
+        <div class="pay-stat-info">
+          <div class="pay-stat-value" id="stat-total-count">0</div>
+          <div class="pay-stat-label">Pagamentos confirmados</div>
+        </div>
+      </div>
+      <div class="pay-stat-card">
+        <div class="pay-stat-icon">📈</div>
+        <div class="pay-stat-info">
+          <div class="pay-stat-value" id="stat-ticket-medio">R$ 0,00</div>
+          <div class="pay-stat-label">Ticket médio</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Histórico -->
+    <div class="section-title">🕓 Últimos Pagamentos</div>
+    <div class="history-wrap">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>Valor</th>
+            <th>Gateway</th>
+            <th>Data / Hora</th>
+          </tr>
+        </thead>
+        <tbody id="history-body">
+          <tr><td colspan="3" class="empty-history">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Providers section -->
+    <div class="section-title">💳 Gateways de Pagamento</div>
+    <div class="providers-grid" id="providers-grid">
+      <div style="color:#8b949e; padding:20px;">Carregando...</div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    CopyPix Bot &nbsp;·&nbsp; Painel Admin &nbsp;·&nbsp; v1.0.0
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+  let PANEL_KEY = '';
+
+  // ═══════════════════════════════════════
+  // LOGIN
+  // ═══════════════════════════════════════
+  document.getElementById('password-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+
+  async function doLogin() {
+    const pwd = document.getElementById('password-input').value.trim();
+    if (!pwd) return;
+
+    try {
+      const res = await fetch('/painel/api/providers', {
+        headers: { 'x-panel-key': pwd }
+      });
+
+      if (res.status === 401) {
+        document.getElementById('login-error').style.display = 'block';
+        return;
+      }
+
+      PANEL_KEY = pwd;
+      localStorage.setItem('copypix_key', pwd);
+      document.getElementById('login-error').style.display = 'none';
+      showPanel();
+      loadProviders();
+      loadStats();
+      // Auto-refresh stats a cada 30 segundos
+      setInterval(loadStats, 30000);
+
+    } catch (e) {
+      showToast('❌ Erro ao conectar com o servidor.', 'error');
+    }
+  }
+
+  function logout() {
+    PANEL_KEY = '';
+    localStorage.removeItem('copypix_key');
+    document.getElementById('panel-screen').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('password-input').value = '';
+  }
+
+  function showPanel() {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('panel-screen').style.display = 'block';
+  }
+
+  // Auto-login se tiver senha salva
+  window.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('copypix_key');
+    if (saved) {
+      document.getElementById('password-input').value = saved;
+      doLogin();
+    }
+  });
+
+  // ═══════════════════════════════════════
+  // CARREGAR PROVIDERS
+  // ═══════════════════════════════════════
+  async function loadStats() {
+    try {
+      const res  = await fetch('/painel/api/stats', { headers: { 'x-panel-key': PANEL_KEY } });
+      const data = await res.json();
+
+      const today = data.today;
+      const ticketMedio = today.count > 0 ? today.total / today.count : 0;
+
+      document.getElementById('stat-total-valor').textContent  = 'R$ ' + formatBRL(today.total);
+      document.getElementById('stat-total-count').textContent  = today.count;
+      document.getElementById('stat-ticket-medio').textContent = 'R$ ' + formatBRL(ticketMedio);
+
+      renderHistory(data.history);
+    } catch (e) {
+      console.error('Erro ao carregar stats:', e);
+    }
+  }
+
+  function renderHistory(history) {
+    const tbody = document.getElementById('history-body');
+
+    if (!history || history.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="3" class="empty-history">💤 Nenhum pagamento hoje ainda.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = history.map(p => {
+      const dataHora = new Date(p.paidAt).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+      return `
+        <tr>
+          <td><strong>R$ ${formatBRL(p.amountReais)}</strong></td>
+          <td><span class="provider-pill">${p.provider}</span></td>
+          <td style="color:#8b949e">${dataHora}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  async function loadProviders() {
+    try {
+      const res  = await fetch('/painel/api/providers', { headers: { 'x-panel-key': PANEL_KEY } });
+      const data = await res.json();
+
+      const providers = Object.entries(data);
+      const active    = providers.filter(([, p]) => p.enabled).length;
+
+      document.getElementById('stat-total').textContent    = providers.length;
+      document.getElementById('stat-active').textContent   = active;
+      document.getElementById('stat-inactive').textContent = providers.length - active;
+
+      renderProviders(data);
+    } catch (e) {
+      showToast('❌ Erro ao carregar providers.', 'error');
+    }
+  }
+
+  function formatBRL(value) {
+    return value.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+  }
+
+  function renderProviders(data) {
+    const grid = document.getElementById('providers-grid');
+
+    // Agrupar por faixa
+    const ranges = {};
+    for (const [id, p] of Object.entries(data)) {
+      const key = `${p.min}-${p.max}`;
+      if (!ranges[key]) ranges[key] = [];
+      ranges[key].push({ id, ...p });
+    }
+
+    grid.innerHTML = '';
+
+    for (const [, providers] of Object.entries(ranges)) {
+      for (const p of providers) {
+        const card = document.createElement('div');
+        card.className = `provider-card ${p.enabled ? 'active' : 'inactive'}`;
+        card.id        = `card-${p.id}`;
+        card.style.setProperty('--accent', p.color || '#58a6ff');
+
+        card.innerHTML = `
+          <div class="card-top">
+            <div class="provider-name">${p.label}</div>
+            <span class="status-badge ${p.enabled ? 'on' : 'off'}" id="badge-${p.id}">
+              ${p.enabled ? '● Ativo' : '○ Inativo'}
+            </span>
+          </div>
+          <div class="card-range" id="range-label-${p.id}">
+            💰 <strong>R$ ${formatBRL(p.min)}</strong>&nbsp;até&nbsp;<strong>R$ ${formatBRL(p.max)}</strong>
+          </div>
+          <div class="range-editor">
+            <div class="range-editor-label">✏️ Editar faixa de valor</div>
+            <div class="range-inputs">
+              <input class="range-input" id="min-${p.id}" type="number" value="${p.min}" min="1" placeholder="Mín" />
+              <span class="range-sep">até</span>
+              <input class="range-input" id="max-${p.id}" type="number" value="${p.max}" min="1" placeholder="Máx" />
+              <button class="save-range-btn" onclick="saveRange('${p.id}')">💾</button>
+            </div>
+          </div>
+          <div class="toggle-row" style="margin-top:14px">
+            <span class="toggle-label">${p.enabled ? 'Clique para desligar' : 'Clique para ligar'}</span>
+            <label class="toggle" id="toggle-${p.id}">
+              <input type="checkbox" ${p.enabled ? 'checked' : ''} onchange="toggleProvider('${p.id}', this)" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        `;
+
+        grid.appendChild(card);
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════
+  // TOGGLE PROVIDER
+  // ═══════════════════════════════════════
+  async function toggleProvider(id, checkbox) {
+    const toggle = document.getElementById(`toggle-${id}`);
+    toggle.classList.add('loading');
+
+    try {
+      const res  = await fetch(`/painel/api/providers/${id}/toggle`, {
+        method: 'POST',
+        headers: { 'x-panel-key': PANEL_KEY }
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        const p       = data.provider;
+        const card    = document.getElementById(`card-${id}`);
+        const badge   = document.getElementById(`badge-${id}`);
+        const label   = card.querySelector('.toggle-label');
+
+        card.className  = `provider-card ${p.enabled ? 'active' : 'inactive'}`;
+        badge.className = `status-badge ${p.enabled ? 'on' : 'off'}`;
+        badge.textContent = p.enabled ? '● Ativo' : '○ Inativo';
+        label.textContent = p.enabled ? 'Clique para desligar' : 'Clique para ligar';
+        checkbox.checked  = p.enabled;
+
+        showToast(
+          p.enabled
+            ? `✅ ${p.label} foi ligado com sucesso!`
+            : `⏹️ ${p.label} foi desligado.`,
+          p.enabled ? 'success' : 'error'
+        );
+
+        // Atualizar stats
+        loadProviders();
+      }
+    } catch (e) {
+      checkbox.checked = !checkbox.checked; // reverter
+      showToast('❌ Erro ao atualizar provider.', 'error');
+    } finally {
+      toggle.classList.remove('loading');
+    }
+  }
+
+  // ═══════════════════════════════════════
+  // SALVAR FAIXA DE VALOR
+  // ═══════════════════════════════════════
+  async function saveRange(id) {
+    const min = parseFloat(document.getElementById(`min-${id}`).value);
+    const max = parseFloat(document.getElementById(`max-${id}`).value);
+
+    if (!min || !max || min < 1 || max <= min) {
+      showToast('❌ Valores inválidos! O máximo deve ser maior que o mínimo.', 'error');
+      return;
+    }
+
+    try {
+      const res  = await fetch(`/painel/api/providers/${id}/range`, {
+        method:  'POST',
+        headers: { 'x-panel-key': PANEL_KEY, 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ min, max })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        const p     = data.provider;
+        const label = document.getElementById(`range-label-${id}`);
+        label.innerHTML = `💰 <strong>R$ ${formatBRL(p.min)}</strong>&nbsp;até&nbsp;<strong>R$ ${formatBRL(p.max)}</strong>`;
+        showToast(`✅ Faixa de ${p.label} atualizada!`, 'success');
+      } else {
+        showToast(`❌ ${data.error}`, 'error');
+      }
+    } catch (e) {
+      showToast('❌ Erro ao salvar faixa.', 'error');
+    }
+  }
+
+  // ═══════════════════════════════════════
+  // TOAST
+  // ═══════════════════════════════════════
+  let toastTimer;
+
+  function showToast(msg, type = 'success') {
+    const el   = document.getElementById('toast');
+    el.textContent = msg;
+    el.className   = `show ${type}`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.className = ''; }, 3500);
+  }
+</script>
+
+</body>
+</html>
