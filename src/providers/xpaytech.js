@@ -78,4 +78,41 @@ async function createPix(chatId, amountReais) {
   };
 }
 
-module.exports = { createPix };
+// ==========================
+// SAQUE (pay-out)
+// ==========================
+async function withdraw(chatId, amountReais, pixKey, pixKeyType) {
+  const orderId = `xpay_out_${chatId}_${Date.now()}`;
+  const token   = await getToken();
+
+  const payload = {
+    amount:     amountReais,
+    webhook:    process.env.XPAYTECH_WEBHOOK_URL,
+    document:   '99999999999',
+    pixKey,
+    pixKeyType: pixKeyType.toUpperCase(),
+    externalId: orderId
+  };
+
+  console.log(`📤 [XPayTech] Iniciando saque R$ ${amountReais.toFixed(2)} | chatId: ${chatId} | chave: ${pixKey}`);
+
+  const response = await axios.post(
+    `${BASE_URL}/api/order/pay-out`,
+    payload,
+    {
+      headers: {
+        Authorization:  `Bearer ${token}`,
+        Accept:         'application/json',
+        'Content-Type': 'application/json'
+      },
+      timeout: 15000
+    }
+  );
+
+  const data = response.data?.data || response.data;
+  console.log(`✅ [XPayTech] Saque enviado | orderId: ${orderId} | id: ${data.id}`);
+
+  return { orderId, id: data.id };
+}
+
+module.exports = { createPix, withdraw };
