@@ -77,7 +77,7 @@ clientBot.onText(/\/start/, (msg) => {
     `Sua carteira digital PIX. Deposite, gerencie seu saldo e saque quando quiser!\n\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
     `📌 *Comandos:*\n\n` +
-    `💰 /depositar <valor> — Gerar PIX para depósito\n` +
+    `💰 /pix <valor> — Gerar PIX para depósito\n` +
     `💳 /saldo — Ver seu saldo atual\n` +
     `💸 /sacar <valor> — Sacar para sua chave PIX\n` +
     `📋 /extrato — Histórico de transações\n` +
@@ -97,9 +97,9 @@ clientBot.onText(/\/ajuda/, (msg) => {
     msg.chat.id,
     `🆘 *Central de Ajuda — Alpha Bank Pay*\n\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
-    `💰 */depositar <valor>*\n` +
+    `💰 */pix <valor>*\n` +
     `  Gera um PIX para depositar na sua conta\n` +
-    `  Ex: \`/depositar 500\`\n\n` +
+    `  Ex: \`/pix 500\`\n\n` +
     `💳 */saldo*\n` +
     `  Exibe seu saldo disponível\n\n` +
     `💸 */sacar <valor>*\n` +
@@ -118,7 +118,7 @@ clientBot.onText(/\/ajuda/, (msg) => {
 });
 
 // ==========================
-// BOT CLIENTE — /depositar (e alias /pix)
+// BOT CLIENTE — /pix
 // ==========================
 async function handleDepositar(msg, match) {
   const chatId = msg.chat.id;
@@ -134,7 +134,7 @@ async function handleDepositar(msg, match) {
   if (!input || isNaN(valor) || valor <= 0) {
     return clientBot.sendMessage(
       chatId,
-      `❌ *Valor inválido!*\n\nUse: \`/depositar <valor>\`\nExemplo: \`/depositar 500\``,
+      `❌ *Valor inválido!*\n\nUse: \`/pix <valor>\`\nExemplo: \`/pix 500\``,
       { parse_mode: 'Markdown' }
     ).catch(() => {});
   }
@@ -157,7 +157,7 @@ async function handleDepositar(msg, match) {
       { parse_mode: 'Markdown' }
     );
   } catch (e) {
-    console.warn('[/depositar] Erro ao enviar loading:', e.message);
+    console.warn('[/pix] Erro ao enviar loading:', e.message);
     return;
   }
 
@@ -187,7 +187,7 @@ async function handleDepositar(msg, match) {
           ]]
         }
       }
-    ).catch(e => console.warn('[/depositar] Erro ao enviar QR:', e.message));
+    ).catch(e => console.warn('[/pix] Erro ao enviar QR:', e.message));
 
   } catch (err) {
     console.error(`❌ [${route.label}] Erro ao gerar PIX:`, err.response?.data || err.message);
@@ -200,7 +200,7 @@ async function handleDepositar(msg, match) {
   }
 }
 
-clientBot.onText(/\/depositar(?:\s+(.+))?/, handleDepositar);
+clientBot.onText(/\/pix(?:\s+(.+))?/, handleDepositar);
 clientBot.onText(/\/pix(?:\s+(.+))?/,       handleDepositar);
 
 // ==========================
@@ -229,7 +229,7 @@ clientBot.onText(/\/saldo/, (msg) => {
     `💰 *Saldo disponível:* R$ ${formatBRL(user.balance)}\n` +
     `${temChave}\n` +
     `━━━━━━━━━━━━━━━━━━━━\n\n` +
-    `💰 /depositar — Adicionar saldo\n` +
+    `💰 /pix — Adicionar saldo\n` +
     `💸 /sacar — Solicitar saque\n` +
     `📋 /extrato — Ver histórico`,
     { parse_mode: 'Markdown' }
@@ -305,7 +305,7 @@ clientBot.onText(/\/extrato/, (msg) => {
   if (!txs || txs.length === 0) {
     return clientBot.sendMessage(
       chatId,
-      `📋 *Seu Extrato*\n\n💤 Nenhuma transação ainda.\n\nUse /depositar para adicionar saldo!`,
+      `📋 *Seu Extrato*\n\n💤 Nenhuma transação ainda.\n\nUse /pix para adicionar saldo!`,
       { parse_mode: 'Markdown' }
     ).catch(() => {});
   }
@@ -487,7 +487,7 @@ clientBot.on('message', (msg) => {
   if (msg.text && !msg.text.startsWith('/') && !msg.via_bot) {
     clientBot.sendMessage(
       msg.chat.id,
-      `👋 Use os comandos:\n\n💰 /depositar <valor>\n💳 /saldo\n💸 /sacar <valor>\n📋 /extrato\n🆘 /ajuda`,
+      `👋 Use os comandos:\n\n💰 /pix <valor>\n💳 /saldo\n💸 /sacar <valor>\n📋 /extrato\n🆘 /ajuda`,
       { parse_mode: 'Markdown' }
     ).catch(() => {});
   }
@@ -680,7 +680,7 @@ function _notifyFailed(orderId) {
   if (!order) return;
   clientBot.sendMessage(
     order.chatId,
-    `❌ *Depósito não confirmado.*\n\n😕 Sua cobrança foi cancelada ou expirou.\nGere uma nova com /depositar se quiser tentar novamente.`,
+    `❌ *Depósito não confirmado.*\n\n😕 Sua cobrança foi cancelada ou expirou.\nGere uma nova com /pix se quiser tentar novamente.`,
     { parse_mode: 'Markdown' }
   ).catch(() => {});
   deleteOrder(orderId);
