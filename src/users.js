@@ -193,6 +193,58 @@ function getAllUsers() {
   return db.prepare('SELECT * FROM users ORDER BY createdAt DESC').all();
 }
 
+// ==========================
+// LISTAR AFILIADOS DE UM GERENTE
+// ==========================
+function getAffiliates(managerChatId) {
+  return db.prepare(
+    'SELECT * FROM users WHERE referredBy = ? ORDER BY createdAt DESC'
+  ).all(String(managerChatId));
+}
+
+// ==========================
+// LISTAR TODOS OS GERENTES
+// ==========================
+function getManagers() {
+  return db.prepare(
+    'SELECT * FROM users WHERE commissionRate > 0 ORDER BY commissionRate DESC'
+  ).all();
+}
+
+// ==========================
+// VINCULAR / DESVINCULAR GERENTE (admin)
+// Força o referredBy independentemente de ter um indicador já.
+// Se managerChatId for null → desvincula.
+// ==========================
+function setReferrer(clientChatId, managerChatId) {
+  if (managerChatId) {
+    const referrer = getUser(managerChatId);
+    if (!referrer) return getUser(clientChatId);
+
+    db.prepare(`
+      UPDATE users SET referredBy = ?, updatedAt = datetime('now')
+      WHERE chatId = ?
+    `).run(String(managerChatId), String(clientChatId));
+
+    // Aplica taxa do gerente automaticamente
+    if (referrer.referralFee > 0) {
+      db.prepare(`
+        UPDATE users SET depositFee = ?, updatedAt = datetime('now')
+        WHERE chatId = ?
+      `).run(referrer.referralFee, String(clientChatId));
+      console.log(`🔗 [Users] Vínculo admin | cliente: ${clientChatId} → gerente: ${managerChatId} | taxa: ${referrer.referralFee}%`);
+    }
+  } else {
+    // Desvincula
+    db.prepare(`
+      UPDATE users SET referredBy = NULL, updatedAt = datetime('now')
+      WHERE chatId = ?
+    `).run(String(clientChatId));
+    console.log(`🔗 [Users] Desvinculado | cliente: ${clientChatId}`);
+  }
+  return getUser(clientChatId);
+}
+
 module.exports = {
   getUser,
   getUserByReferralCode,
@@ -208,4 +260,7 @@ module.exports = {
   debitBalance,
   forceBalance,
   getAllUsers,
+  getAffiliates,
+  getManagers,
+  setReferrer,
 };

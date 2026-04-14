@@ -362,6 +362,39 @@ tbody tr:hover td{background:rgba(255,255,255,.02);}
   </main>
 </div>
 
+<!-- MODAL AFILIADOS -->
+<div id="aff-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeAffModal()">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title">👥 Afiliados do Gerente</div>
+    <div class="modal-sub" id="aff-modal-sub">Gerente</div>
+    <div id="aff-apply-bar" style="display:none;background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.3);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+      <span id="aff-apply-info" style="color:#a78bfa"></span>
+      <button class="btn btn-xs" style="background:rgba(139,92,246,.25);color:#a78bfa;border:1px solid rgba(139,92,246,.4)" onclick="applyTaxaAll()" id="aff-apply-btn">⚡ Aplicar taxa a todos</button>
+    </div>
+    <div id="aff-list" style="max-height:320px;overflow-y:auto;margin-bottom:16px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger btn-sm" onclick="closeAffModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL VINCULAR GERENTE -->
+<div id="ref-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeRefModal()">
+  <div class="modal">
+    <div class="modal-title">🔗 Vincular Gerente</div>
+    <div class="modal-sub" id="ref-modal-sub">Usuário</div>
+    <div id="ref-current-info" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:13px;"></div>
+    <label>Selecionar Gerente <span style="color:var(--muted);font-weight:400">— deixe em branco para desvincular</span></label>
+    <select id="ref-manager-sel" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;padding:10px 14px;outline:none;margin-bottom:16px;transition:border-color .2s;">
+      <option value="">— Sem gerente (desvincular) —</option>
+    </select>
+    <div class="modal-actions">
+      <button class="btn btn-danger btn-sm" onclick="closeRefModal()">Cancelar</button>
+      <button class="btn btn-success btn-sm" onclick="confirmRef()" id="ref-confirm-btn">Salvar vínculo</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL GERENTE -->
 <div id="mgr-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeMgrModal()">
   <div class="modal">
@@ -641,6 +674,8 @@ function renderUsers(users) {
           <button class="btn btn-xs" style="background:rgba(139,92,246,.2);color:#a78bfa;border:1px solid rgba(139,92,246,.4)" title="Configurar como gerente" onclick="openMgrModal('${u.chatId}','${name.replace(/'/g,"\\'")}',${u.commissionRate||0},${u.referralFee||0},${fmt(u.referralEarned||0).replace(',','.')})">
             👑 ${isManager ? 'Editar Gerente' : 'Tornar Gerente'}
           </button>
+          ${isManager ? `<button class="btn btn-xs" style="background:rgba(59,130,246,.15);color:#60a5fa;border:1px solid rgba(59,130,246,.3)" title="Ver afiliados deste gerente" onclick="openAffModal('${u.chatId}','${name.replace(/'/g,"\\'")}',${u.referralFee||0})">👥 Afiliados</button>` : ''}
+          <button class="btn btn-xs" style="background:rgba(245,158,11,.12);color:#fbbf24;border:1px solid rgba(245,158,11,.3)" title="Vincular a um gerente" onclick="openRefModal('${u.chatId}','${name.replace(/'/g,"\\'")}','${u.referredBy||''}')">🔗 Vincular</button>
           <button class="btn ${u.banned?'btn-warning':'btn-danger'} btn-xs" onclick="toggleBan('${u.chatId}',${u.banned?0:1},'${name.replace(/'/g,"\\'")}')">
             ${u.banned ? '✅ Desbanir' : '🚫 Banir'}
           </button>
@@ -882,6 +917,146 @@ function toast(msg, type='success') {
   el.className = `show t-${type}`;
   clearTimeout(_toastT);
   _toastT = setTimeout(()=>{ el.className=''; }, 3500);
+}
+
+// ══ MODAL AFILIADOS ══
+let affModalChatId = null;
+let affModalFee    = 0;
+
+async function openAffModal(chatId, name, referralFee) {
+  affModalChatId = chatId;
+  affModalFee    = referralFee;
+  document.getElementById('aff-modal-sub').textContent = `${name} (${chatId})`;
+  const listEl    = document.getElementById('aff-list');
+  const applyBar  = document.getElementById('aff-apply-bar');
+  const applyInfo = document.getElementById('aff-apply-info');
+  listEl.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted)">⏳ Carregando...</div>';
+  applyBar.style.display = 'none';
+  document.getElementById('aff-modal').style.display = 'flex';
+
+  try {
+    const affiliates = await api('GET', `/painel/api/users/${chatId}/affiliates`);
+    if(!affiliates || !affiliates.length) {
+      listEl.innerHTML = '<div class="empty"><span class="empty-icon">👥</span><p>Nenhum afiliado ainda.</p></div>';
+      return;
+    }
+
+    if(referralFee > 0) {
+      applyBar.style.display = 'flex';
+      applyInfo.textContent = `Taxa atual: ${referralFee}% — aplicar a todos os ${affiliates.length} clientes`;
+    }
+
+    listEl.innerHTML = `
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr>
+          <th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border)">Cliente</th>
+          <th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border)">Taxa</th>
+          <th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border)">Saldo</th>
+          <th style="text-align:left;padding:8px 10px;font-size:11px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--border)">Desde</th>
+        </tr></thead>
+        <tbody>
+          ${affiliates.map(a => {
+            const nome = [a.firstName,a.lastName].filter(Boolean).join(' ') || a.username || a.chatId;
+            const ini  = (nome[0]||'?').toUpperCase();
+            return `<tr>
+              <td style="padding:10px;border-bottom:1px solid var(--border)">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">${ini}</div>
+                  <div>
+                    <div style="font-weight:600;color:#fff;font-size:13px">${nome}</div>
+                    <div style="font-size:11px;color:var(--muted)">${a.chatId}</div>
+                  </div>
+                </div>
+              </td>
+              <td style="padding:10px;border-bottom:1px solid var(--border);color:#fbbf24;font-size:13px">${a.depositFee||0}%</td>
+              <td style="padding:10px;border-bottom:1px solid var(--border);color:${a.balance>0?'#4ade80':'#94a3b8'};font-weight:600;font-size:13px">R$ ${fmt(a.balance)}</td>
+              <td style="padding:10px;border-bottom:1px solid var(--border);font-size:12px;color:var(--muted)">${fmtDate(a.createdAt)}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  } catch(e) {
+    listEl.innerHTML = '<div style="color:var(--red);padding:16px">❌ Erro ao carregar afiliados.</div>';
+  }
+}
+
+function closeAffModal() {
+  document.getElementById('aff-modal').style.display = 'none';
+  affModalChatId = null;
+}
+
+async function applyTaxaAll() {
+  if(!affModalChatId) return;
+  if(!confirm(`Aplicar taxa de ${affModalFee}% a todos os afiliados deste gerente?`)) return;
+  const btn = document.getElementById('aff-apply-btn');
+  btn.disabled = true; btn.textContent = '⏳ Aplicando...';
+  try {
+    const r = await api('POST', `/painel/api/users/${affModalChatId}/apply-taxa`);
+    if(r?.success) {
+      toast(`✅ Taxa de ${r.fee}% aplicada a ${r.count} afiliado(s)!`, 'success');
+      openAffModal(affModalChatId, document.getElementById('aff-modal-sub').textContent.split(' (')[0], affModalFee);
+    } else { toast(`❌ ${r?.error||'Erro.'}`, 'error'); }
+  } catch(e) { toast('❌ Erro ao aplicar taxa.','error'); }
+  finally { btn.disabled=false; btn.textContent='⚡ Aplicar taxa a todos'; }
+}
+
+// ══ MODAL VINCULAR GERENTE ══
+let refModalChatId = null;
+
+function openRefModal(chatId, name, currentReferredBy) {
+  refModalChatId = chatId;
+  document.getElementById('ref-modal-sub').textContent = `${name} (${chatId})`;
+
+  // Preenche info atual
+  const infoEl = document.getElementById('ref-current-info');
+  infoEl.innerHTML = currentReferredBy
+    ? `<span style="color:#fbbf24">🔗 Vinculado ao gerente:</span> <strong>${currentReferredBy}</strong>`
+    : `<span style="color:var(--muted)">Sem gerente vinculado.</span>`;
+
+  // Popula select com gerentes disponíveis a partir dos usuários já carregados
+  const sel = document.getElementById('ref-manager-sel');
+  sel.innerHTML = '<option value="">— Sem gerente (desvincular) —</option>';
+
+  // Usa os dados já carregados da tabela de usuários
+  document.querySelectorAll('#users-tbody tr').forEach(row => {
+    const badge = row.querySelector('.badge-purple');
+    if(!badge) return;
+    const idEl  = row.querySelector('.user-id');
+    const nameEl= row.querySelector('.user-name');
+    if(!idEl || !nameEl) return;
+    const mId   = idEl.textContent.split('·')[0].trim();
+    const mName = nameEl.textContent.replace(/👑.*%/,'').trim();
+    if(mId && mId !== chatId) {
+      const opt = document.createElement('option');
+      opt.value = mId;
+      opt.textContent = `${mName} (${mId})`;
+      if(mId === currentReferredBy) opt.selected = true;
+      sel.appendChild(opt);
+    }
+  });
+
+  document.getElementById('ref-modal').style.display = 'flex';
+}
+
+function closeRefModal() {
+  document.getElementById('ref-modal').style.display = 'none';
+  refModalChatId = null;
+}
+
+async function confirmRef() {
+  if(!refModalChatId) return;
+  const managerChatId = document.getElementById('ref-manager-sel').value || null;
+  const btn = document.getElementById('ref-confirm-btn');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  try {
+    const r = await api('POST', `/painel/api/users/${refModalChatId}/referrer`, { managerChatId });
+    if(r?.success) {
+      toast(managerChatId ? `✅ Vinculado ao gerente ${managerChatId}!` : '✅ Vínculo removido!', 'success');
+      closeRefModal();
+      loadUsers();
+    } else { toast(`❌ ${r?.error||'Erro ao salvar.'}`, 'error'); }
+  } catch(e) { toast('❌ Erro.','error'); }
+  finally { btn.disabled=false; btn.textContent='Salvar vínculo'; }
 }
 </script>
 </body>

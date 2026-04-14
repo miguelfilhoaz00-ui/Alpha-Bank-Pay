@@ -68,12 +68,13 @@ function completeDeposit(orderId) {
 
         // Registra como transação do tipo commission
         db.prepare(`
-          INSERT INTO transactions (chatId, type, amount, gateway, status, note, completedAt)
-          VALUES (?, 'commission', ?, 'sistema', 'completed', ?, datetime('now'))
+          INSERT INTO transactions (chatId, type, amount, gateway, status, note, completedAt, fromChatId)
+          VALUES (?, 'commission', ?, 'sistema', 'completed', ?, datetime('now'), ?)
         `).run(
           manager.chatId,
           managerCommission,
-          `Comissão de ${updatedUser.firstName || tx.chatId} — ${feePct}% taxa / ${manager.commissionRate}% base`
+          `Comissão de ${updatedUser.firstName || tx.chatId} — ${feePct}% taxa / ${manager.commissionRate}% base`,
+          tx.chatId
         );
 
         commissionResult = {

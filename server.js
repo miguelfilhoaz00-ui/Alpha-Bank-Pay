@@ -9,7 +9,7 @@ const { getRoute }                                        = require('./src/route
 const { saveOrder, getOrder, deleteOrder }                = require('./src/store');
 const { getAll, toggle, updateRange, ready: configReady } = require('./src/config');
 const stats                                               = require('./src/stats');
-const { getUser, getUserByReferralCode, upsertUser, setPixKey, setGatewayOverride, setBanned, setDepositFee, setCommissionRate, setReferralFee, setReferredBy, getAllUsers } = require('./src/users');
+const { getUser, getUserByReferralCode, upsertUser, setPixKey, setGatewayOverride, setBanned, setDepositFee, setCommissionRate, setReferralFee, setReferredBy, getAllUsers, getAffiliates, getManagers, setReferrer } = require('./src/users');
 const { createDepositTx, completeDeposit, createWithdrawalTx, completeWithdrawal, failWithdrawal, adminAdjust, getUserTransactions, getAllTransactions } = require('./src/wallet');
 const xpaytech                                            = require('./src/providers/xpaytech');
 
@@ -28,6 +28,15 @@ const APP_URL        = (process.env.APP_URL || '').replace(/\/$/, '');
 // Map: chatId (string) → { amount }
 // ==========================
 const pendingWithdrawals = new Map();
+
+// ==========================
+// TAXA PENDENTE DE APLICAÇÃO
+// Map: managerChatId (string) → { taxa }
+// ==========================
+const pendingTaxaApply = new Map();
+
+// Username dinâmico do bot cliente (preenchido no startup)
+let CLIENT_BOT_USERNAME = '';
 
 // ==========================
 // HELPERS
@@ -112,6 +121,7 @@ clientBot.onText(/\/start(?:\s+(.+))?/, (msg, match) => {
     `📋 /extrato — Histórico de transações\n` +
     `🤝 /indicar — Seu link de indicação\n` +
     `⚙️ /taxa <percent> — Definir taxa dos seus clientes (gerentes)\n` +
+    `👥 /afiliados — Listar seus clientes indicados (gerentes)\n` +
     `🆘 /ajuda — Ajuda completa\n` +
     `━━━━━━━━━━━━━━━━━━━━\n\n` +
     `_Para sacar, use /sacar e informe sua chave PIX na hora._`,
@@ -131,21 +141,35 @@ clientBot.onText(/\/indicar/, (msg) => {
   }
 
   const code      = user.referralCode || '—';
-  const botUser   = process.env.CLIENT_BOT_USERNAME || '';
+  const botUser   = CLIENT_BOT_USERNAME;
   const link      = botUser ? `https://t.me/${botUser}?start=${code}` : null;
   const isManager = user.commissionRate > 0;
+
+  // Bloqueia gerente sem taxa definida
+  if (isManager && (!user.referralFee || user.referralFee <= 0)) {
+    return clientBot.sendMessage(
+      chatId,
+      `⚠️ *Configure sua taxa primeiro!*\n\n` +
+      `Você é gerente com taxa base de *${user.commissionRate}%*, mas ainda não definiu a taxa dos seus clientes.\n\n` +
+      `Use o comando abaixo para configurar:\n\`/taxa ${(user.commissionRate + 5).toFixed(0)}\`\n\n` +
+      `_A taxa deve ser maior que ${user.commissionRate}% — o spread é o seu lucro._`,
+      { parse_mode: 'Markdown' }
+    ).catch(() => {});
+  }
 
   let texto =
     `🤝 *${isManager ? 'Painel do Gerente' : 'Sistema de Indicação'}*\n\n` +
     `━━━━━━━━━━━━━━━━━━━━\n`;
 
   if (isManager) {
-    const spread = user.referralFee > 0 ? (user.referralFee - user.commissionRate).toFixed(2) : null;
+    const spread     = (user.referralFee - user.commissionRate).toFixed(2);
+    const affiliates = getAffiliates(chatId);
     texto +=
       `📊 *Sua taxa base:* ${user.commissionRate}%\n` +
-      `💸 *Taxa dos seus clientes:* ${user.referralFee > 0 ? user.referralFee + '%' : '⚠️ Não definida'}\n` +
-      (spread ? `💰 *Seu lucro por depósito:* ${spread}%\n` : '') +
-      `\n_Use /taxa <percent> para definir a taxa dos seus clientes._\n\n`;
+      `💸 *Taxa dos seus clientes:* ${user.referralFee}%\n` +
+      `💰 *Seu lucro por depósito:* ${spread}%\n` +
+      `👥 *Clientes indicados:* ${affiliates.length}\n` +
+      `\n_Use /taxa para alterar a taxa. Use /afiliados para ver seus clientes._\n\n`;
   } else {
     texto += `🎁 *Como funciona:*\nQuando alguém entrar pelo seu link e depositar, você recebe comissão automaticamente!\n\n`;
   }
@@ -225,18 +249,40 @@ clientBot.onText(/\/taxa(?:\s+(.+))?/, (msg, match) => {
   setReferralFee(chatId, taxa);
   console.log(`⚙️  [Taxa] Gerente ${chatId} definiu taxa de clientes: ${taxa}% (spread: ${spread}%)`);
 
-  clientBot.sendMessage(
-    chatId,
+  const affiliates = getAffiliates(chatId);
+  const baseMsg =
     `✅ *Taxa atualizada com sucesso!*\n\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
     `💸 *Taxa dos seus clientes:* ${taxa}%\n` +
     `📊 *Taxa base (dono):* ${user.commissionRate}%\n` +
     `💰 *Seu lucro por depósito:* ${spread}%\n` +
-    `━━━━━━━━━━━━━━━━━━━━\n\n` +
-    `_Todos os novos clientes que entrarem pelo seu link pagarão ${taxa}% de taxa._\n` +
-    `_Você receberá ${spread}% de cada depósito deles automaticamente!_ 🚀`,
-    { parse_mode: 'Markdown' }
-  ).catch(() => {});
+    `━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+  if (affiliates.length > 0) {
+    pendingTaxaApply.set(String(chatId), { taxa });
+    clientBot.sendMessage(
+      chatId,
+      baseMsg +
+      `📊 Você tem *${affiliates.length} cliente(s)* existente(s).\nDeseja aplicar a nova taxa a eles também?`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [[
+            { text: `✅ Aplicar a todos (${affiliates.length})`, callback_data: `taxa_apply_${chatId}` },
+            { text: '❌ Somente novos',                          callback_data: `taxa_skip_${chatId}` }
+          ]]
+        }
+      }
+    ).catch(() => {});
+  } else {
+    clientBot.sendMessage(
+      chatId,
+      baseMsg +
+      `_Novos clientes que entrarem pelo seu link pagarão ${taxa}% de taxa._\n` +
+      `_Você receberá ${spread}% de cada depósito deles automaticamente!_ 🚀`,
+      { parse_mode: 'Markdown' }
+    ).catch(() => {});
+  }
 
   // Notificar admin
   adminBot.sendMessage(
@@ -247,6 +293,51 @@ clientBot.onText(/\/taxa(?:\s+(.+))?/, (msg, match) => {
     `📊 *Taxa base:* ${user.commissionRate}%\n` +
     `💰 *Spread do gerente:* ${spread}%\n` +
     `📅 ${nowBR()}`,
+    { parse_mode: 'Markdown' }
+  ).catch(() => {});
+});
+
+// ==========================
+// BOT CLIENTE — /afiliados
+// Lista clientes indicados pelo gerente
+// ==========================
+clientBot.onText(/\/afiliados/, (msg) => {
+  const chatId = msg.chat.id;
+  const user   = getUser(chatId);
+
+  if (!user || !user.commissionRate || user.commissionRate <= 0) {
+    return clientBot.sendMessage(
+      chatId,
+      `❌ *Acesso negado.*\n\nEste comando é exclusivo para gerentes.`,
+      { parse_mode: 'Markdown' }
+    ).catch(() => {});
+  }
+
+  const affiliates = getAffiliates(chatId);
+
+  if (!affiliates.length) {
+    return clientBot.sendMessage(
+      chatId,
+      `📊 *Seus Afiliados*\n\n💤 Nenhum cliente indicado ainda.\n\n` +
+      `Compartilhe seu link via /indicar para começar a ganhar!`,
+      { parse_mode: 'Markdown' }
+    ).catch(() => {});
+  }
+
+  const linhas = affiliates.map((a, i) => {
+    const nome = [a.firstName, a.lastName].filter(Boolean).join(' ') || `ID ${a.chatId}`;
+    const taxa = a.depositFee || 0;
+    return `${i + 1}. *${nome}*\n   Taxa: ${taxa}% · Saldo: R$ ${formatBRL(a.balance)}`;
+  }).join('\n\n');
+
+  clientBot.sendMessage(
+    chatId,
+    `📊 *Seus Afiliados — ${affiliates.length} cliente(s)*\n\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `${linhas}\n\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `💸 *Taxa cobrada:* ${user.referralFee || 0}%\n` +
+    `💰 *Total ganho em comissões:* R$ ${formatBRL(user.referralEarned || 0)}`,
     { parse_mode: 'Markdown' }
   ).catch(() => {});
 });
@@ -631,6 +722,35 @@ clientBot.on('callback_query', async (query) => {
       `❌ *Saque cancelado.*`,
       { chat_id: chatId, message_id: query.message.message_id, parse_mode: 'Markdown' }
     ).catch(() => {});
+
+  } else if (data === `taxa_apply_${chatId}`) {
+    const pending = pendingTaxaApply.get(chatId);
+    if (!pending) {
+      return clientBot.editMessageText(
+        `⚠️ Sessão expirada. Use /taxa novamente.`,
+        { chat_id: chatId, message_id: query.message.message_id }
+      ).catch(() => {});
+    }
+    pendingTaxaApply.delete(chatId);
+
+    const affiliates = getAffiliates(chatId);
+    for (const affiliate of affiliates) {
+      setDepositFee(affiliate.chatId, pending.taxa);
+    }
+    console.log(`⚙️  [Taxa] Gerente ${chatId} aplicou ${pending.taxa}% a ${affiliates.length} afiliado(s).`);
+
+    clientBot.editMessageText(
+      `✅ *Taxa aplicada a ${affiliates.length} cliente(s)!*\n\n` +
+      `Todos agora pagarão *${pending.taxa}%* nos seus depósitos.`,
+      { chat_id: chatId, message_id: query.message.message_id, parse_mode: 'Markdown' }
+    ).catch(() => {});
+
+  } else if (data === `taxa_skip_${chatId}`) {
+    pendingTaxaApply.delete(chatId);
+    clientBot.editMessageText(
+      `✅ *Taxa salva!*\n\nSomente novos clientes indicados pagarão a nova taxa.`,
+      { chat_id: chatId, message_id: query.message.message_id, parse_mode: 'Markdown' }
+    ).catch(() => {});
   }
 });
 
@@ -837,6 +957,47 @@ app.post('/painel/api/broadcast', panelAuth, async (req, res) => {
   res.json({ success: true, sent, failed });
 });
 
+// Afiliados de um gerente
+app.get('/painel/api/users/:chatId/affiliates', panelAuth, (req, res) => {
+  const affiliates = getAffiliates(req.params.chatId);
+  res.json(affiliates);
+});
+
+// Vincular / desvincular cliente a um gerente (admin)
+app.post('/painel/api/users/:chatId/referrer', panelAuth, (req, res) => {
+  const user = getUser(req.params.chatId);
+  if (!user) return res.status(404).json({ success: false, error: 'Usuário não encontrado.' });
+
+  const managerChatId = req.body.managerChatId || null;
+
+  if (managerChatId) {
+    const manager = getUser(managerChatId);
+    if (!manager) return res.status(404).json({ success: false, error: 'Gerente não encontrado.' });
+    if (!manager.commissionRate || manager.commissionRate <= 0)
+      return res.status(400).json({ success: false, error: 'Usuário não é gerente.' });
+  }
+
+  const updated = setReferrer(req.params.chatId, managerChatId);
+  console.log(`🔗 [Painel] Vínculo | cliente: ${req.params.chatId} → gerente: ${managerChatId || 'nenhum'}`);
+  res.json({ success: true, user: updated });
+});
+
+// Aplicar taxa do gerente a todos os afiliados existentes
+app.post('/painel/api/users/:chatId/apply-taxa', panelAuth, (req, res) => {
+  const manager = getUser(req.params.chatId);
+  if (!manager) return res.status(404).json({ success: false, error: 'Gerente não encontrado.' });
+  if (!manager.referralFee || manager.referralFee <= 0)
+    return res.status(400).json({ success: false, error: 'Gerente não tem taxa definida.' });
+
+  const affiliates = getAffiliates(req.params.chatId);
+  for (const affiliate of affiliates) {
+    setDepositFee(affiliate.chatId, manager.referralFee);
+  }
+
+  console.log(`📊 [Painel] Taxa ${manager.referralFee}% aplicada a ${affiliates.length} afiliado(s) do gerente ${req.params.chatId}`);
+  res.json({ success: true, count: affiliates.length, fee: manager.referralFee });
+});
+
 // Transações
 app.get('/painel/api/transactions', panelAuth, (req, res) => {
   res.json(getAllTransactions(100));
@@ -1041,6 +1202,12 @@ app.get('/webhook-info', async (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 configReady.then(() => {
+  // Busca username dinâmico do bot cliente
+  clientBot.getMe().then(me => {
+    CLIENT_BOT_USERNAME = me.username || '';
+    console.log(`🤖 [Bot] Username: @${CLIENT_BOT_USERNAME}`);
+  }).catch(e => console.warn('⚠️  Não foi possível obter username do bot:', e.message));
+
   app.listen(PORT, () => {
     console.log('\n🏦 ═══════════════════════════════════════');
     console.log('      Alpha Bank Pay — Iniciado! 🚀');

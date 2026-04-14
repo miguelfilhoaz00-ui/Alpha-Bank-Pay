@@ -57,10 +57,22 @@ const migrations = [
   `ALTER TABLE users ADD COLUMN referralEarned  REAL    DEFAULT 0`,
   `ALTER TABLE users ADD COLUMN commissionRate  REAL    DEFAULT 0`,
   `ALTER TABLE users ADD COLUMN referralFee     REAL    DEFAULT 0`,
-  `ALTER TABLE transactions ADD COLUMN fee      REAL    DEFAULT 0`,
+  `ALTER TABLE transactions ADD COLUMN fee        REAL DEFAULT 0`,
+  `ALTER TABLE transactions ADD COLUMN fromChatId TEXT DEFAULT NULL`,
 ];
 for (const sql of migrations) {
   try { db.exec(sql); } catch (e) { /* coluna já existe — ignorar */ }
+}
+
+// Gerar referralCode para usuários antigos que não possuem
+const semCodigo = db.prepare("SELECT chatId FROM users WHERE referralCode IS NULL").all();
+if (semCodigo.length > 0) {
+  const upd = db.prepare("UPDATE users SET referralCode = ? WHERE chatId = ?");
+  for (const u of semCodigo) {
+    const code = Math.random().toString(36).substr(2, 8).toUpperCase();
+    upd.run(code, u.chatId);
+  }
+  console.log(`🔗 [DB] Códigos de indicação gerados para ${semCodigo.length} usuário(s).`);
 }
 
 console.log('🗄️  [DB] Banco de dados inicializado.');
