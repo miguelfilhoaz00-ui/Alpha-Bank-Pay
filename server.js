@@ -130,34 +130,34 @@ clientBot.onText(/\/indicar/, (msg) => {
     return clientBot.sendMessage(chatId, `❌ Use /start primeiro para criar sua conta.`).catch(() => {});
   }
 
-  const code    = user.referralCode || '—';
-  const botUser = process.env.CLIENT_BOT_USERNAME || '';
-  const link    = botUser ? `https://t.me/${botUser}?start=${code}` : null;
+  const code      = user.referralCode || '—';
+  const botUser   = process.env.CLIENT_BOT_USERNAME || '';
+  const link      = botUser ? `https://t.me/${botUser}?start=${code}` : null;
   const isManager = user.commissionRate > 0;
 
-  let msg =
+  let texto =
     `🤝 *${isManager ? 'Painel do Gerente' : 'Sistema de Indicação'}*\n\n` +
     `━━━━━━━━━━━━━━━━━━━━\n`;
 
   if (isManager) {
     const spread = user.referralFee > 0 ? (user.referralFee - user.commissionRate).toFixed(2) : null;
-    msg +=
+    texto +=
       `📊 *Sua taxa base:* ${user.commissionRate}%\n` +
       `💸 *Taxa dos seus clientes:* ${user.referralFee > 0 ? user.referralFee + '%' : '⚠️ Não definida'}\n` +
       (spread ? `💰 *Seu lucro por depósito:* ${spread}%\n` : '') +
       `\n_Use /taxa <percent> para definir a taxa dos seus clientes._\n\n`;
   } else {
-    msg += `🎁 *Como funciona:*\nQuando alguém entrar pelo seu link e depositar, você recebe comissão automaticamente!\n\n`;
+    texto += `🎁 *Como funciona:*\nQuando alguém entrar pelo seu link e depositar, você recebe comissão automaticamente!\n\n`;
   }
 
-  msg +=
+  texto +=
     `━━━━━━━━━━━━━━━━━━━━\n` +
     `🔗 *Seu código:* \`${code}\`\n` +
     (link ? `🌐 *Seu link:*\n\`${link}\`\n\n` : '\n') +
     `💰 *Total ganho em comissões:* R$ ${formatBRL(user.referralEarned || 0)}\n` +
     `━━━━━━━━━━━━━━━━━━━━`;
 
-  clientBot.sendMessage(chatId, msg, { parse_mode: 'Markdown' }).catch(() => {});
+  clientBot.sendMessage(chatId, texto, { parse_mode: 'Markdown' }).catch(() => {});
 });
 
 // ==========================
