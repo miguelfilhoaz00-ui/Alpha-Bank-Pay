@@ -282,9 +282,7 @@ tbody tr:hover td{background:rgba(255,255,255,.02);}
               <tr>
                 <th>Usuário</th>
                 <th>Saldo</th>
-                <th>Taxa cliente %</th>
-                <th>Taxa base (dono) %</th>
-                <th>Taxa referral (gerente) %</th>
+                <th>Taxa dep. %</th>
                 <th>Gateway</th>
                 <th>Status</th>
                 <th>Ações</th>
@@ -362,6 +360,29 @@ tbody tr:hover td{background:rgba(255,255,255,.02);}
     </div>
 
   </main>
+</div>
+
+<!-- MODAL GERENTE -->
+<div id="mgr-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeMgrModal()">
+  <div class="modal">
+    <div class="modal-title">👑 Configurar Gerente</div>
+    <div class="modal-sub" id="mgr-modal-sub">Usuário</div>
+
+    <div id="mgr-current" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:20px;font-size:13px;line-height:1.8;"></div>
+
+    <label>Taxa base do dono (%) <span style="color:var(--muted);font-weight:400">— o que você garante em cada depósito dos clientes dele</span></label>
+    <input type="number" id="mgr-rate" placeholder="Ex: 20" min="0" max="100" step="0.1"/>
+
+    <div style="font-size:12px;color:var(--muted);margin-top:-10px;margin-bottom:16px;">
+      ⚠️ O gerente define a taxa dos clientes dele acima deste valor via <code>/taxa</code>. O spread é o lucro dele.
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-danger btn-sm" onclick="removeManager()" id="mgr-remove-btn" style="display:none">Remover Gerente</button>
+      <button class="btn btn-danger btn-sm" onclick="closeMgrModal()">Cancelar</button>
+      <button class="btn btn-success btn-sm" onclick="confirmManager()" id="mgr-confirm-btn">Salvar</button>
+    </div>
+  </div>
 </div>
 
 <!-- MODAL AJUSTE DE SALDO -->
@@ -565,7 +586,7 @@ async function loadUsers() {
 function renderUsers(users) {
   const tb = document.getElementById('users-tbody');
   if(!users.length) {
-    tb.innerHTML=`<tr><td colspan="8"><div class="empty"><span class="empty-icon">👥</span><p>Nenhum usuário ainda.</p></div></td></tr>`;
+    tb.innerHTML=`<tr><td colspan="6"><div class="empty"><span class="empty-icon">👥</span><p>Nenhum usuário ainda.</p></div></td></tr>`;
     return;
   }
   const gwOpts = `<option value="">🔀 Auto</option>` +
@@ -575,12 +596,16 @@ function renderUsers(users) {
     const name      = [u.firstName,u.lastName].filter(Boolean).join(' ') || `@${u.username||u.chatId}`;
     const ini       = (name[0]||'?').toUpperCase();
     const isManager = (u.commissionRate||0) > 0;
-    const bannedBadge = u.banned ? `<span class="badge badge-red" style="margin-left:6px">🚫</span>` : '';
-    const managerBadge = isManager ? `<span class="badge badge-purple" style="margin-left:6px">⚙ Gerente</span>` : '';
 
-    // Spread do gerente
-    const spread = isManager && u.referralFee > 0
-      ? `<span class="td-muted" style="font-size:11px;display:block">spread: ${(u.referralFee - u.commissionRate).toFixed(2)}%</span>`
+    const badges = [
+      u.banned    ? `<span class="badge badge-red">🚫 Banido</span>` : '',
+      isManager   ? `<span class="badge badge-purple">👑 Gerente ${u.commissionRate}%</span>` : '',
+    ].filter(Boolean).join(' ');
+
+    const managerInfo = isManager
+      ? `<div style="font-size:11px;color:#a78bfa;margin-top:2px">` +
+        `Taxa clientes: ${u.referralFee||0}% · Spread: ${((u.referralFee||0)-(u.commissionRate||0)).toFixed(1)}% · Ganhos: R$${fmt(u.referralEarned||0)}` +
+        `</div>`
       : '';
 
     return `<tr>
@@ -588,30 +613,18 @@ function renderUsers(users) {
         <div class="user-info">
           <div class="user-avatar" style="${isManager?'background:linear-gradient(135deg,#8b5cf6,#3b82f6)':''}">${ini}</div>
           <div>
-            <div class="user-name">${name}${bannedBadge}${managerBadge}</div>
+            <div class="user-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${name} ${badges}</div>
             <div class="user-id">${u.chatId}${u.referralCode ? ` · 🔗 ${u.referralCode}` : ''}</div>
-            ${isManager ? `<div class="user-id" style="color:#a78bfa">💰 Ganhos: R$ ${fmt(u.referralEarned||0)}</div>` : ''}
+            ${managerInfo}
           </div>
         </div>
       </td>
       <td><strong style="color:${u.balance>0?'#4ade80':'#94a3b8'}">R$ ${fmt(u.balance)}</strong></td>
       <td>
         <div style="display:flex;align-items:center;gap:6px">
-          <input class="mini-input" id="ufee-${u.chatId}" type="number" value="${u.depositFee||0}" min="0" max="100" step="0.1" title="Taxa que este usuário paga ao depositar"/>
+          <input class="mini-input" id="ufee-${u.chatId}" type="number" value="${u.depositFee||0}" min="0" max="100" step="0.1"/>
           <button class="btn btn-warning btn-xs" onclick="saveUserFee('${u.chatId}')">✔</button>
         </div>
-      </td>
-      <td>
-        <div style="display:flex;align-items:center;gap:6px">
-          <input class="mini-input" id="ucom-${u.chatId}" type="number" value="${u.commissionRate||0}" min="0" max="100" step="0.1" title="% que o dono garante (taxa base do gerente)"/>
-          <button class="btn btn-primary btn-xs" onclick="saveUserCommission('${u.chatId}')">✔</button>
-        </div>
-      </td>
-      <td>
-        ${isManager
-          ? `<span style="color:#a78bfa;font-weight:600">${u.referralFee||0}%</span>${spread}`
-          : `<span class="td-muted">—</span>`
-        }
       </td>
       <td>
         <div style="display:flex;align-items:center;gap:6px">
@@ -620,13 +633,16 @@ function renderUsers(users) {
         </div>
       </td>
       <td>
-        <span class="badge ${u.banned ? 'badge-red' : 'badge-green'}">${u.banned ? '🚫 Banido' : '✅ Ativo'}</span>
+        <span class="badge ${u.banned?'badge-red':'badge-green'}">${u.banned?'🚫 Banido':'✅ Ativo'}</span>
       </td>
       <td>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn btn-success btn-xs" onclick="openBalModal('${u.chatId}','${name.replace(/'/g,"\\'")}')">💰</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-success btn-xs" title="Ajustar saldo" onclick="openBalModal('${u.chatId}','${name.replace(/'/g,"\\'")}')">💰 Saldo</button>
+          <button class="btn btn-xs" style="background:rgba(139,92,246,.2);color:#a78bfa;border:1px solid rgba(139,92,246,.4)" title="Configurar como gerente" onclick="openMgrModal('${u.chatId}','${name.replace(/'/g,"\\'")}',${u.commissionRate||0},${u.referralFee||0},${fmt(u.referralEarned||0).replace(',','.')})">
+            👑 ${isManager ? 'Editar Gerente' : 'Tornar Gerente'}
+          </button>
           <button class="btn ${u.banned?'btn-warning':'btn-danger'} btn-xs" onclick="toggleBan('${u.chatId}',${u.banned?0:1},'${name.replace(/'/g,"\\'")}')">
-            ${u.banned ? '✅' : '🚫'}
+            ${u.banned ? '✅ Desbanir' : '🚫 Banir'}
           </button>
         </div>
       </td>
@@ -660,18 +676,6 @@ async function saveUserFee(chatId) {
   } catch(e) { toast('❌ Erro ao salvar.','error'); }
 }
 
-async function saveUserCommission(chatId) {
-  const inp  = document.getElementById(`ucom-${chatId}`);
-  const rate = parseFloat(inp?.value);
-  if(isNaN(rate) || rate < 0 || rate > 100) { toast('❌ Taxa inválida (0–100).','error'); return; }
-  try {
-    const r = await api('POST', `/painel/api/users/${chatId}/commission`, { commissionRate: rate });
-    if(r?.success) {
-      toast(`✅ Taxa base de ${chatId} → ${rate}%`, 'success');
-      loadUsers(); // recarrega para atualizar badge de gerente
-    } else toast(`❌ ${r?.error||'Erro ao salvar.'}`, 'error');
-  } catch(e) { toast('❌ Erro ao salvar.','error'); }
-}
 
 async function toggleBan(chatId, banned, name) {
   const action = banned ? 'banir' : 'desbanir';
@@ -681,6 +685,73 @@ async function toggleBan(chatId, banned, name) {
     if(r?.success) { toast(`${banned?'🚫':'✅'} ${name} ${banned?'banido':'desbanido'}!`, banned?'error':'success'); loadUsers(); }
     else toast(`❌ ${r?.error||'Erro.'}`, 'error');
   } catch(e) { toast('❌ Erro.','error'); }
+}
+
+// ══ MODAL GERENTE ══
+let mgrModalChatId = null;
+
+function openMgrModal(chatId, name, commissionRate, referralFee, earned) {
+  mgrModalChatId = chatId;
+  const isManager = commissionRate > 0;
+  document.getElementById('mgr-modal-sub').textContent = `${name} (${chatId})`;
+  document.getElementById('mgr-rate').value = commissionRate || '';
+
+  const currentEl = document.getElementById('mgr-current');
+  if(isManager) {
+    const spread = referralFee > 0 ? (referralFee - commissionRate).toFixed(2) : '—';
+    currentEl.innerHTML =
+      `<strong style="color:#a78bfa">👑 Este usuário já é Gerente</strong><br>` +
+      `📊 Taxa base (dono): <strong>${commissionRate}%</strong><br>` +
+      `💸 Taxa clientes definida pelo gerente: <strong>${referralFee > 0 ? referralFee+'%' : 'Não definida ainda'}</strong><br>` +
+      `💰 Spread do gerente: <strong>${spread}${spread!=='—'?'%':''}</strong><br>` +
+      `🏆 Total ganho: <strong>R$ ${fmt(earned)}</strong>`;
+    document.getElementById('mgr-remove-btn').style.display = 'inline-flex';
+  } else {
+    currentEl.innerHTML = `<span style="color:var(--muted)">Este usuário <strong>não é gerente</strong>. Defina a taxa base para ativá-lo como gerente.</span>`;
+    document.getElementById('mgr-remove-btn').style.display = 'none';
+  }
+
+  document.getElementById('mgr-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('mgr-rate').focus(), 100);
+}
+
+function closeMgrModal() {
+  document.getElementById('mgr-modal').style.display = 'none';
+  mgrModalChatId = null;
+}
+
+async function confirmManager() {
+  const rate = parseFloat(document.getElementById('mgr-rate').value);
+  if(!mgrModalChatId || isNaN(rate) || rate < 0 || rate > 100) {
+    toast('❌ Taxa inválida (0–100).', 'error'); return;
+  }
+  const btn = document.getElementById('mgr-confirm-btn');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+  try {
+    const r = await api('POST', `/painel/api/users/${mgrModalChatId}/commission`, { commissionRate: rate });
+    if(r?.success) {
+      toast(`✅ ${rate > 0 ? `Gerente ativado com taxa base ${rate}%` : 'Taxa base zerada'}!`, 'success');
+      closeMgrModal();
+      loadUsers();
+    } else { toast(`❌ ${r?.error||'Erro ao salvar.'}`, 'error'); }
+  } catch(e) { toast('❌ Erro.', 'error'); }
+  finally { btn.disabled = false; btn.textContent = 'Salvar'; }
+}
+
+async function removeManager() {
+  if(!mgrModalChatId) return;
+  if(!confirm('Remover este usuário como gerente? Ele perderá o acesso ao /taxa.')) return;
+  const btn = document.getElementById('mgr-remove-btn');
+  btn.disabled = true;
+  try {
+    const r = await api('POST', `/painel/api/users/${mgrModalChatId}/commission`, { commissionRate: 0 });
+    if(r?.success) {
+      toast('✅ Gerente removido!', 'success');
+      closeMgrModal();
+      loadUsers();
+    } else { toast(`❌ ${r?.error||'Erro.'}`, 'error'); }
+  } catch(e) { toast('❌ Erro.', 'error'); }
+  finally { btn.disabled = false; }
 }
 
 // ══ MODAL AJUSTE SALDO ══
