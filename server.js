@@ -9,8 +9,8 @@ const { getRoute }                                        = require('./src/route
 const { saveOrder, getOrder, deleteOrder }                = require('./src/store');
 const { getAll, toggle, updateRange, ready: configReady } = require('./src/config');
 const stats                                               = require('./src/stats');
-const { getUser, upsertUser, setPixKey, setGatewayOverride, getAllUsers } = require('./src/users');
-const { createDepositTx, completeDeposit, createWithdrawalTx, completeWithdrawal, failWithdrawal, getUserTransactions, getAllTransactions } = require('./src/wallet');
+const { getUser, getUserByReferralCode, upsertUser, setPixKey, setGatewayOverride, setBanned, setDepositFee, setReferredBy, getAllUsers } = require('./src/users');
+const { createDepositTx, completeDeposit, createWithdrawalTx, completeWithdrawal, failWithdrawal, adminAdjust, getUserTransactions, getAllTransactions } = require('./src/wallet');
 const xpaytech                                            = require('./src/providers/xpaytech');
 
 // ==========================
@@ -59,17 +59,46 @@ function maskPixKey(key) {
 }
 
 // ==========================
-// BOT CLIENTE — /start
+// BOT CLIENTE — /start [codigo_indicacao]
 // ==========================
-clientBot.onText(/\/start/, (msg) => {
+clientBot.onText(/\/start(?:\s+(.+))?/, (msg, match) => {
   const chatId    = msg.chat.id;
   const firstName = msg.from?.first_name || 'Cliente';
+  const refCode   = match[1]?.trim().toUpperCase() || null;
 
-  upsertUser(chatId, {
+  const { isNew } = upsertUser(chatId, {
     firstName: msg.from?.first_name,
     lastName:  msg.from?.last_name,
     username:  msg.from?.username
   });
+
+  // Processar código de indicação (só para novos usuários)
+  if (isNew && refCode) {
+    const referrer = getUserByReferralCode(refCode);
+    if (referrer && String(referrer.chatId) !== String(chatId)) {
+      setReferredBy(chatId, referrer.chatId);
+      console.log(`🔗 [Indicação] ${chatId} indicado por ${referrer.chatId} (código: ${refCode})`);
+      clientBot.sendMessage(
+        chatId,
+        `🎉 *Você foi indicado por ${referrer.firstName || 'um amigo'}!*\n\n` +
+        `Faça seu primeiro depósito e ele receberá um bônus especial. 🎁`,
+        { parse_mode: 'Markdown' }
+      ).catch(() => {});
+    }
+  }
+
+  // Notificar admin sobre novo usuário
+  if (isNew) {
+    adminBot.sendMessage(
+      ADMIN_CHAT_ID,
+      `👤 *NOVO USUÁRIO REGISTRADO*\n\n` +
+      `👤 *Nome:* ${firstName}\n` +
+      `🆔 *Chat ID:* \`${chatId}\`\n` +
+      `${refCode ? `🔗 *Indicado por:* código \`${refCode}\`\n` : ''}` +
+      `📅 *Data:* ${nowBR()}`,
+      { parse_mode: 'Markdown' }
+    ).catch(() => {});
+  }
 
   clientBot.sendMessage(
     chatId,
@@ -82,9 +111,40 @@ clientBot.onText(/\/start/, (msg) => {
     `💸 /sacar <valor> — Sacar para sua chave PIX\n` +
     `📋 /extrato — Histórico de transações\n` +
     `🔑 /cadastrar <chave> — Cadastrar chave PIX\n` +
+    `🤝 /indicar — Ganhe bônus indicando amigos\n` +
     `🆘 /ajuda — Ajuda completa\n` +
     `━━━━━━━━━━━━━━━━━━━━\n\n` +
     `_Para sacar, primeiro use /cadastrar para registrar sua chave PIX._`,
+    { parse_mode: 'Markdown' }
+  ).catch(() => {});
+});
+
+// ==========================
+// BOT CLIENTE — /indicar
+// ==========================
+clientBot.onText(/\/indicar/, (msg) => {
+  const chatId = msg.chat.id;
+  const user   = getUser(chatId);
+
+  if (!user) {
+    return clientBot.sendMessage(chatId, `❌ Use /start primeiro para criar sua conta.`).catch(() => {});
+  }
+
+  const code    = user.referralCode || '—';
+  const botUser = process.env.CLIENT_BOT_USERNAME || '';
+  const link    = botUser ? `https://t.me/${botUser}?start=${code}` : null;
+
+  clientBot.sendMessage(
+    chatId,
+    `🤝 *Sistema de Indicação*\n\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `🎁 *Como funciona:*\n` +
+    `Quando alguém entrar pelo seu link e fizer o *primeiro depósito*, você recebe *R$ 10,00* de bônus automaticamente!\n\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `🔗 *Seu código:* \`${code}\`\n` +
+    (link ? `🌐 *Seu link:*\n\`${link}\`\n\n` : '\n') +
+    `💰 *Total ganho:* R$ ${formatBRL(user.referralEarned || 0)}\n` +
+    `━━━━━━━━━━━━━━━━━━━━`,
     { parse_mode: 'Markdown' }
   ).catch(() => {});
 });
@@ -130,6 +190,14 @@ async function handleDepositar(msg, match) {
     lastName:  msg.from?.last_name,
     username:  msg.from?.username
   });
+
+  // Verificar ban
+  const userCheck = getUser(chatId);
+  if (userCheck?.banned) {
+    return clientBot.sendMessage(
+      chatId, `🚫 *Sua conta está bloqueada.*\n\nEntre em contato com o suporte.`, { parse_mode: 'Markdown' }
+    ).catch(() => {});
+  }
 
   if (!input || isNaN(valor) || valor <= 0) {
     return clientBot.sendMessage(
@@ -201,7 +269,6 @@ async function handleDepositar(msg, match) {
 }
 
 clientBot.onText(/\/pix(?:\s+(.+))?/, handleDepositar);
-clientBot.onText(/\/pix(?:\s+(.+))?/,       handleDepositar);
 
 // ==========================
 // BOT CLIENTE — /saldo
@@ -340,6 +407,12 @@ clientBot.onText(/\/sacar(?:\s+(.+))?/, async (msg, match) => {
   if (!user) {
     return clientBot.sendMessage(
       chatId, `❌ Conta não encontrada. Use /start para criar sua conta.`
+    ).catch(() => {});
+  }
+
+  if (user.banned) {
+    return clientBot.sendMessage(
+      chatId, `🚫 *Sua conta está bloqueada.*\n\nEntre em contato com o suporte.`, { parse_mode: 'Markdown' }
     ).catch(() => {});
   }
 
@@ -545,6 +618,83 @@ app.post('/painel/api/users/:chatId/gateway', panelAuth, (req, res) => {
   res.json({ success: true, user: updated });
 });
 
+// Banir / desbanir usuário
+app.post('/painel/api/users/:chatId/ban', panelAuth, (req, res) => {
+  const user = getUser(req.params.chatId);
+  if (!user) return res.status(404).json({ success: false, error: 'Usuário não encontrado.' });
+  const banned  = req.body.banned ? 1 : 0;
+  const updated = setBanned(req.params.chatId, banned);
+  console.log(`🚫 [Painel] chatId ${req.params.chatId} → ${banned ? 'BANIDO' : 'DESBANIDO'}`);
+  adminBot.sendMessage(
+    ADMIN_CHAT_ID,
+    `${banned ? '🚫' : '✅'} *USUÁRIO ${banned ? 'BANIDO' : 'DESBANIDO'}*\n` +
+    `👤 *Nome:* ${user.firstName || user.chatId}\n` +
+    `🆔 *Chat ID:* \`${user.chatId}\`\n` +
+    `📅 ${nowBR()}`,
+    { parse_mode: 'Markdown' }
+  ).catch(() => {});
+  res.json({ success: true, user: updated });
+});
+
+// Definir taxa de depósito por usuário
+app.post('/painel/api/users/:chatId/fee', panelAuth, (req, res) => {
+  const user = getUser(req.params.chatId);
+  if (!user) return res.status(404).json({ success: false, error: 'Usuário não encontrado.' });
+  const fee = parseFloat(req.body.fee);
+  if (isNaN(fee) || fee < 0 || fee > 100) return res.status(400).json({ success: false, error: 'Taxa inválida (0-100).' });
+  const updated = setDepositFee(req.params.chatId, fee);
+  console.log(`💸 [Painel] Taxa do chatId ${req.params.chatId} → ${fee}%`);
+  res.json({ success: true, user: updated });
+});
+
+// Ajuste manual de saldo
+app.post('/painel/api/users/:chatId/balance', panelAuth, (req, res) => {
+  const user = getUser(req.params.chatId);
+  if (!user) return res.status(404).json({ success: false, error: 'Usuário não encontrado.' });
+  const amount = parseFloat(req.body.amount);
+  const note   = String(req.body.note || 'Ajuste manual pelo painel').slice(0, 200);
+  if (isNaN(amount) || amount === 0) return res.status(400).json({ success: false, error: 'Valor inválido.' });
+  const updated = adminAdjust(req.params.chatId, amount, note);
+  console.log(`💰 [Painel] Ajuste manual | chatId: ${req.params.chatId} | R$ ${amount}`);
+  adminBot.sendMessage(
+    ADMIN_CHAT_ID,
+    `💰 *AJUSTE MANUAL DE SALDO*\n` +
+    `👤 *Usuário:* ${user.firstName || user.chatId}\n` +
+    `${amount > 0 ? '➕' : '➖'} *Valor:* R$ ${formatBRL(Math.abs(amount))}\n` +
+    `📝 *Nota:* ${note}\n` +
+    `💳 *Novo saldo:* R$ ${formatBRL(updated.balance)}\n` +
+    `📅 ${nowBR()}`,
+    { parse_mode: 'Markdown' }
+  ).catch(() => {});
+  // Notificar o usuário
+  clientBot.sendMessage(
+    req.params.chatId,
+    `💰 *Saldo atualizado pelo administrador*\n\n` +
+    `${amount > 0 ? '➕ *Crédito:* R$' : '➖ *Débito:* R$'} ${formatBRL(Math.abs(amount))}\n` +
+    `📝 *Motivo:* ${note}\n` +
+    `💳 *Saldo atual:* R$ ${formatBRL(updated.balance)}`,
+    { parse_mode: 'Markdown' }
+  ).catch(() => {});
+  res.json({ success: true, user: updated });
+});
+
+// Broadcast para todos os usuários
+app.post('/painel/api/broadcast', panelAuth, async (req, res) => {
+  const message = String(req.body.message || '').trim();
+  if (!message) return res.status(400).json({ success: false, error: 'Mensagem vazia.' });
+  const users = getAllUsers().filter(u => !u.banned);
+  let sent = 0, failed = 0;
+  for (const u of users) {
+    try {
+      await clientBot.sendMessage(u.chatId, `📢 *Mensagem da Alpha Bank Pay:*\n\n${message}`, { parse_mode: 'Markdown' });
+      sent++;
+    } catch (e) { failed++; }
+    await new Promise(r => setTimeout(r, 50)); // throttle 20/s
+  }
+  console.log(`📢 [Broadcast] Enviado: ${sent} | Falhou: ${failed}`);
+  res.json({ success: true, sent, failed });
+});
+
 // Transações
 app.get('/painel/api/transactions', panelAuth, (req, res) => {
   res.json(getAllTransactions(100));
@@ -634,8 +784,11 @@ function _notifyPayment(orderId, extra = {}) {
   const { chatId, amountReais, provider } = order;
 
   // Credita saldo e marca depósito como concluído
-  const depositResult = completeDeposit(orderId);
-  const novoSaldo     = depositResult?.user?.balance ?? null;
+  const depositResult  = completeDeposit(orderId);
+  const novoSaldo      = depositResult?.user?.balance ?? null;
+  const feeAmount      = depositResult?.tx?.fee || 0;
+  const netAmount      = depositResult?.tx?.netAmount ?? amountReais;
+  const referralBonus  = depositResult?.referralBonus || null;
 
   const valorFormatado = formatBRL(amountReais);
   const dataHora       = extra.paidAt ? formatDate(extra.paidAt) : nowBR();
@@ -643,8 +796,14 @@ function _notifyPayment(orderId, extra = {}) {
   let msgCliente =
     `🎉 *DEPÓSITO CONFIRMADO!* ✅\n\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
-    `💰 *Valor depositado:* R$ ${valorFormatado}\n` +
-    `📅 *Data:* ${dataHora}\n`;
+    `💰 *Valor pago:* R$ ${valorFormatado}\n`;
+
+  if (feeAmount > 0) {
+    msgCliente += `📊 *Taxa:* R$ ${formatBRL(feeAmount)}\n`;
+    msgCliente += `✅ *Valor creditado:* R$ ${formatBRL(netAmount)}\n`;
+  }
+
+  msgCliente += `📅 *Data:* ${dataHora}\n`;
 
   if (novoSaldo !== null) {
     msgCliente += `💳 *Saldo atual:* R$ ${formatBRL(novoSaldo)}\n`;
@@ -657,15 +816,31 @@ function _notifyPayment(orderId, extra = {}) {
   clientBot.sendMessage(chatId, msgCliente, { parse_mode: 'Markdown' })
     .catch(e => console.error('[notify] Erro cliente:', e.message));
 
+  // Notificar referrer sobre bônus
+  if (referralBonus) {
+    const referredUser = depositResult.user;
+    clientBot.sendMessage(
+      referralBonus.referrerId,
+      `🎁 *Bônus de Indicação Recebido!*\n\n` +
+      `✅ *R$ ${formatBRL(referralBonus.amount)}* creditado na sua conta!\n` +
+      `👤 Seu indicado *${referredUser.firstName || 'um amigo'}* fez o primeiro depósito.\n\n` +
+      `💳 Use /saldo para ver seu saldo atualizado.`,
+      { parse_mode: 'Markdown' }
+    ).catch(() => {});
+  }
+
   let adminMsg =
     `💸 *NOVO DEPÓSITO RECEBIDO!*\n\n` +
     `━━━━━━━━━━━━━━━━━━━━\n` +
     `💰 *Valor:* R$ ${valorFormatado}\n` +
-    `🏦 *Gateway:* ${provider}\n`;
+    `🏦 *Gateway:* ${provider}\n` +
+    `👤 *Chat ID:* \`${chatId}\`\n`;
 
-  if (extra.pagador) adminMsg += `👤 *Pagador:* ${extra.pagador}\n`;
-  if (extra.cpf)     adminMsg += `📄 *CPF:* \`${extra.cpf}\`\n`;
-  if (extra.txId)    adminMsg += `🆔 *ID:* \`${extra.txId}\`\n`;
+  if (feeAmount > 0) adminMsg += `📊 *Taxa cobrada:* R$ ${formatBRL(feeAmount)}\n`;
+  if (extra.pagador)  adminMsg += `👤 *Pagador:* ${extra.pagador}\n`;
+  if (extra.cpf)      adminMsg += `📄 *CPF:* \`${extra.cpf}\`\n`;
+  if (extra.txId)     adminMsg += `🆔 *ID:* \`${extra.txId}\`\n`;
+  if (referralBonus)  adminMsg += `🎁 *Bônus indicação:* R$ ${formatBRL(referralBonus.amount)} → \`${referralBonus.referrerId}\`\n`;
   adminMsg += `📅 *Data:* ${dataHora}\n━━━━━━━━━━━━━━━━━━━━`;
 
   adminBot.sendMessage(ADMIN_CHAT_ID, adminMsg, { parse_mode: 'Markdown' })

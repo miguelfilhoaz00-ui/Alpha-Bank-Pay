@@ -1,6 +1,13 @@
 const db = require('./database');
 
 // ==========================
+// GERAR CÓDIGO DE INDICAÇÃO
+// ==========================
+function generateReferralCode() {
+  return Math.random().toString(36).substr(2, 8).toUpperCase();
+}
+
+// ==========================
 // BUSCAR USUÁRIO
 // ==========================
 function getUser(chatId) {
@@ -8,7 +15,15 @@ function getUser(chatId) {
 }
 
 // ==========================
+// BUSCAR POR CÓDIGO DE INDICAÇÃO
+// ==========================
+function getUserByReferralCode(code) {
+  return db.prepare('SELECT * FROM users WHERE referralCode = ?').get(String(code).toUpperCase()) || null;
+}
+
+// ==========================
 // CRIAR OU ATUALIZAR USUÁRIO
+// Retorna { user, isNew }
 // ==========================
 function upsertUser(chatId, { firstName, lastName, username } = {}) {
   const existing = getUser(chatId);
@@ -24,15 +39,16 @@ function upsertUser(chatId, { firstName, lastName, username } = {}) {
       username  || existing.username,
       String(chatId)
     );
+    return { user: getUser(chatId), isNew: false };
   } else {
+    const code = generateReferralCode();
     db.prepare(`
-      INSERT INTO users (chatId, firstName, lastName, username)
-      VALUES (?, ?, ?, ?)
-    `).run(String(chatId), firstName || null, lastName || null, username || null);
-    console.log(`👤 [Users] Novo usuário registrado: ${chatId} (${firstName || 'sem nome'})`);
+      INSERT INTO users (chatId, firstName, lastName, username, referralCode)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(String(chatId), firstName || null, lastName || null, username || null, code);
+    console.log(`👤 [Users] Novo usuário: ${chatId} (${firstName || 'sem nome'}) — código: ${code}`);
+    return { user: getUser(chatId), isNew: true };
   }
-
-  return getUser(chatId);
 }
 
 // ==========================
@@ -54,6 +70,40 @@ function setGatewayOverride(chatId, gatewayOverride) {
     UPDATE users SET gatewayOverride = ?, updatedAt = datetime('now')
     WHERE chatId = ?
   `).run(gatewayOverride || null, String(chatId));
+  return getUser(chatId);
+}
+
+// ==========================
+// BANIR / DESBANIR USUÁRIO
+// ==========================
+function setBanned(chatId, banned) {
+  db.prepare(`
+    UPDATE users SET banned = ?, updatedAt = datetime('now')
+    WHERE chatId = ?
+  `).run(banned ? 1 : 0, String(chatId));
+  return getUser(chatId);
+}
+
+// ==========================
+// DEFINIR TAXA DE DEPÓSITO (%)
+// ==========================
+function setDepositFee(chatId, fee) {
+  db.prepare(`
+    UPDATE users SET depositFee = ?, updatedAt = datetime('now')
+    WHERE chatId = ?
+  `).run(Number(fee) || 0, String(chatId));
+  return getUser(chatId);
+}
+
+// ==========================
+// DEFINIR INDICADOR (referredBy)
+// Só aplica se o usuário ainda não tem indicador
+// ==========================
+function setReferredBy(chatId, referrerChatId) {
+  db.prepare(`
+    UPDATE users SET referredBy = ?, updatedAt = datetime('now')
+    WHERE chatId = ? AND referredBy IS NULL
+  `).run(String(referrerChatId), String(chatId));
   return getUser(chatId);
 }
 
@@ -83,6 +133,18 @@ function debitBalance(chatId, amount) {
 }
 
 // ==========================
+// AJUSTE FORÇADO DE SALDO (admin)
+// amount positivo = crédito, negativo = débito forçado
+// ==========================
+function forceBalance(chatId, delta) {
+  db.prepare(`
+    UPDATE users SET balance = ROUND(MAX(0, balance + ?), 2), updatedAt = datetime('now')
+    WHERE chatId = ?
+  `).run(delta, String(chatId));
+  return getUser(chatId);
+}
+
+// ==========================
 // LISTAR TODOS OS USUÁRIOS (admin)
 // ==========================
 function getAllUsers() {
@@ -91,10 +153,15 @@ function getAllUsers() {
 
 module.exports = {
   getUser,
+  getUserByReferralCode,
   upsertUser,
   setPixKey,
   setGatewayOverride,
+  setBanned,
+  setDepositFee,
+  setReferredBy,
   creditBalance,
   debitBalance,
-  getAllUsers
+  forceBalance,
+  getAllUsers,
 };
