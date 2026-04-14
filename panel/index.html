@@ -1,657 +1,841 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Alpha Bank Pay — Painel Admin</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0d1117; color: #e6edf3; min-height: 100vh; }
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Alpha Bank Pay — Admin</title>
+<style>
+:root {
+  --bg:       #0a0f1e;
+  --surface:  #111827;
+  --surface2: #1a2233;
+  --border:   #1f2d40;
+  --border2:  #2d3f55;
+  --text:     #e2e8f0;
+  --muted:    #64748b;
+  --blue:     #3b82f6;
+  --blue2:    #1d4ed8;
+  --green:    #22c55e;
+  --green2:   #15803d;
+  --red:      #ef4444;
+  --yellow:   #f59e0b;
+  --radius:   12px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;}
+a{color:inherit;text-decoration:none;}
+button{cursor:pointer;font-family:inherit;}
 
-    /* LOGIN */
-    #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: radial-gradient(ellipse at center, #161b22 0%, #0d1117 100%); }
-    .login-box { background: #161b22; border: 1px solid #30363d; border-radius: 16px; padding: 40px; width: 100%; max-width: 380px; text-align: center; }
-    .login-box .logo { font-size: 48px; margin-bottom: 8px; }
-    .login-box h1 { font-size: 24px; font-weight: 700; color: #58a6ff; margin-bottom: 4px; }
-    .login-box p { font-size: 13px; color: #8b949e; margin-bottom: 28px; }
-    .login-box input { width: 100%; padding: 12px 16px; background: #0d1117; border: 1px solid #30363d; border-radius: 8px; color: #e6edf3; font-size: 15px; outline: none; margin-bottom: 12px; transition: border-color .2s; }
-    .login-box input:focus { border-color: #58a6ff; }
-    .login-box button { width: 100%; padding: 12px; background: linear-gradient(135deg,#238636,#2ea043); border: none; border-radius: 8px; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; transition: opacity .2s; }
-    .login-box button:hover { opacity: .85; }
-    .login-error { color: #f85149; font-size: 13px; margin-top: 10px; display: none; }
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
 
-    /* PAINEL */
-    #panel-screen { display: none; }
-    header { background: linear-gradient(135deg,#161b22 0%,#1c2128 100%); border-bottom: 1px solid #30363d; padding: 0 24px; }
-    .header-inner { max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; height: 64px; }
-    .header-logo { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 700; color: #58a6ff; }
-    .header-logo span { font-size: 28px; }
-    .header-right { display: flex; align-items: center; gap: 16px; }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #2ea043; animation: pulse 2s infinite; }
-    @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
-    .logout-btn { background: transparent; border: 1px solid #30363d; color: #8b949e; padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; transition: all .2s; }
-    .logout-btn:hover { border-color: #f85149; color: #f85149; }
+/* ══════════════════════ LOGIN ══════════════════════ */
+#login-screen{
+  display:flex;align-items:center;justify-content:center;
+  min-height:100vh;
+  background:radial-gradient(ellipse 80% 60% at 50% 0%,#0d2045 0%,var(--bg) 70%);
+}
+.login-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:48px 40px;
+  width:100%;max-width:400px;
+  text-align:center;
+  box-shadow:0 25px 60px rgba(0,0,0,.5);
+}
+.login-icon{font-size:56px;margin-bottom:12px;display:block;}
+.login-card h1{font-size:26px;font-weight:800;color:#fff;margin-bottom:4px;}
+.login-card .subtitle{font-size:13px;color:var(--muted);margin-bottom:32px;}
+.login-card input{
+  width:100%;padding:13px 16px;
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:10px;color:var(--text);font-size:15px;
+  outline:none;margin-bottom:12px;
+  transition:border-color .2s,box-shadow .2s;
+}
+.login-card input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(59,130,246,.15);}
+.btn-login{
+  width:100%;padding:13px;
+  background:linear-gradient(135deg,var(--blue),var(--blue2));
+  border:none;border-radius:10px;
+  color:#fff;font-size:15px;font-weight:700;
+  transition:opacity .2s,transform .1s;
+  letter-spacing:.02em;
+}
+.btn-login:hover{opacity:.9;transform:translateY(-1px);}
+.btn-login:active{transform:translateY(0);}
+.login-err{color:var(--red);font-size:13px;margin-top:10px;display:none;}
 
-    /* TABS */
-    .tabs-bar { max-width: 1200px; margin: 0 auto; display: flex; gap: 4px; padding: 0 24px; border-bottom: 1px solid #21262d; }
-    .tab-btn { padding: 14px 20px; font-size: 14px; font-weight: 500; color: #8b949e; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; transition: all .2s; margin-bottom: -1px; }
-    .tab-btn:hover { color: #e6edf3; }
-    .tab-btn.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+/* ══════════════════════ LAYOUT ══════════════════════ */
+#panel-screen{display:none;min-height:100vh;}
 
-    .main { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
+/* ── SIDEBAR ── */
+.sidebar{
+  position:fixed;top:0;left:0;bottom:0;width:240px;
+  background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;z-index:100;
+}
+.sidebar-logo{
+  padding:24px 20px 20px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:12px;
+}
+.sidebar-logo .logo-icon{font-size:32px;}
+.sidebar-logo .logo-text{font-size:16px;font-weight:800;color:#fff;line-height:1.2;}
+.sidebar-logo .logo-sub{font-size:11px;color:var(--muted);}
+.sidebar-nav{flex:1;padding:16px 12px;overflow-y:auto;}
+.nav-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;padding:8px 8px 6px;}
+.nav-item{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 12px;border-radius:8px;
+  font-size:14px;font-weight:500;color:var(--muted);
+  border:none;background:none;width:100%;text-align:left;
+  transition:all .15s;margin-bottom:2px;
+}
+.nav-item:hover{background:var(--surface2);color:var(--text);}
+.nav-item.active{background:rgba(59,130,246,.15);color:var(--blue);font-weight:600;}
+.nav-item .nav-icon{font-size:17px;width:22px;text-align:center;flex-shrink:0;}
+.nav-item .nav-badge{margin-left:auto;background:var(--blue);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;}
+.sidebar-footer{
+  padding:16px 20px;border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.online-dot{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--green);}
+.online-dot::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.btn-logout{
+  background:none;border:1px solid var(--border);
+  color:var(--muted);font-size:12px;padding:5px 12px;
+  border-radius:6px;transition:all .2s;
+}
+.btn-logout:hover{border-color:var(--red);color:var(--red);}
 
-    /* STAT CARDS */
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 16px; margin-bottom: 32px; }
-    .stat-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; text-align: center; }
-    .stat-value { font-size: 32px; font-weight: 700; line-height: 1; margin-bottom: 6px; }
-    .stat-label { font-size: 12px; color: #8b949e; text-transform: uppercase; letter-spacing: .05em; }
-    .stat-value.green { color: #2ea043; }
-    .stat-value.red   { color: #f85149; }
-    .stat-value.blue  { color: #58a6ff; }
-    .stat-value.gold  { color: #d4a017; }
+/* ── MAIN CONTENT ── */
+.content{margin-left:240px;min-height:100vh;padding:32px;}
+.page{display:none;}
+.page.active{display:block;}
 
-    /* SECTION TITLE */
-    .section-title { font-size: 13px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-    .section-title::after { content:''; flex:1; height:1px; background:#30363d; }
+/* ── PAGE HEADER ── */
+.page-header{margin-bottom:28px;}
+.page-title{font-size:22px;font-weight:800;color:#fff;margin-bottom:4px;}
+.page-sub{font-size:13px;color:var(--muted);}
 
-    /* PROVIDER CARDS */
-    .providers-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px,1fr)); gap: 16px; margin-bottom: 32px; }
-    .provider-card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; transition: border-color .2s, transform .1s; position: relative; overflow: hidden; }
-    .provider-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background: var(--accent,#58a6ff); }
-    .provider-card:hover { border-color: #484f58; transform: translateY(-1px); }
-    .provider-card.active   { border-color: #238636; }
-    .provider-card.inactive { border-color: #30363d; opacity: .7; }
-    .card-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
-    .provider-name { font-size: 17px; font-weight: 700; }
-    .status-badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: .05em; }
-    .status-badge.on  { background: #0f2a1a; color: #2ea043; border: 1px solid #238636; }
-    .status-badge.off { background: #1c1c1c; color: #6e7681; border: 1px solid #30363d; }
-    .card-range { font-size: 13px; color: #8b949e; margin-bottom: 16px; }
-    .card-range strong { color: #e6edf3; }
-    .toggle-row { display:flex; align-items:center; justify-content:space-between; }
-    .toggle-label { font-size: 13px; color: #8b949e; }
-    .toggle { position:relative; width:48px; height:26px; cursor:pointer; }
-    .toggle input { opacity:0; width:0; height:0; position:absolute; }
-    .slider { position:absolute; inset:0; background:#30363d; border-radius:26px; transition:background .25s; }
-    .slider::before { content:''; position:absolute; width:20px; height:20px; left:3px; top:3px; background:#fff; border-radius:50%; transition:transform .25s; }
-    .toggle input:checked + .slider { background: #238636; }
-    .toggle input:checked + .slider::before { transform: translateX(22px); }
-    .toggle.loading .slider { opacity:.5; pointer-events:none; }
-    .range-editor { margin-top:14px; padding-top:14px; border-top:1px solid #21262d; }
-    .range-editor-label { font-size:11px; color:#8b949e; text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px; }
-    .range-inputs { display:flex; align-items:center; gap:8px; }
-    .range-input { flex:1; background:#0d1117; border:1px solid #30363d; border-radius:6px; color:#e6edf3; font-size:13px; padding:7px 10px; outline:none; transition:border-color .2s; }
-    .range-input:focus { border-color:#58a6ff; }
-    .range-sep { font-size:12px; color:#8b949e; white-space:nowrap; }
-    .save-range-btn { background:#238636; border:none; border-radius:6px; color:#fff; font-size:13px; font-weight:600; padding:7px 14px; cursor:pointer; white-space:nowrap; transition:opacity .2s; }
-    .save-range-btn:hover { opacity:.8; }
+/* ── STAT CARDS ── */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:28px;}
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:20px 22px;
+  display:flex;align-items:center;gap:16px;
+  transition:border-color .2s,transform .15s;
+}
+.stat-card:hover{border-color:var(--border2);transform:translateY(-2px);}
+.stat-icon{
+  width:48px;height:48px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;flex-shrink:0;
+}
+.stat-icon.blue  {background:rgba(59,130,246,.15);}
+.stat-icon.green {background:rgba(34,197,94,.15);}
+.stat-icon.yellow{background:rgba(245,158,11,.15);}
+.stat-icon.red   {background:rgba(239,68,68,.15);}
+.stat-info{}
+.stat-value{font-size:26px;font-weight:800;color:#fff;line-height:1;}
+.stat-label{font-size:12px;color:var(--muted);margin-top:3px;}
 
-    /* PAY STATS */
-    .pay-stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:32px; }
-    .pay-stat-card { background:#161b22; border:1px solid #30363d; border-radius:12px; padding:20px; display:flex; align-items:center; gap:16px; }
-    .pay-stat-icon { font-size:32px; line-height:1; }
-    .pay-stat-info { flex:1; }
-    .pay-stat-value { font-size:24px; font-weight:700; color:#2ea043; line-height:1.1; }
-    .pay-stat-label { font-size:12px; color:#8b949e; margin-top:2px; }
+/* ── SECTION ── */
+.section{margin-bottom:28px;}
+.section-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:14px;
+}
+.section-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;}
+.section-action{font-size:13px;color:var(--blue);background:none;border:none;cursor:pointer;}
+.section-action:hover{text-decoration:underline;}
 
-    /* TABLE */
-    .table-wrap { background:#161b22; border:1px solid #30363d; border-radius:12px; overflow:hidden; margin-bottom:32px; }
-    table { width:100%; border-collapse:collapse; }
-    th { text-align:left; font-size:11px; font-weight:600; color:#8b949e; text-transform:uppercase; letter-spacing:.06em; padding:10px 14px; border-bottom:1px solid #21262d; white-space:nowrap; }
-    td { padding:12px 14px; font-size:14px; border-bottom:1px solid #21262d; }
-    tr:last-child td { border-bottom:none; }
-    tr:hover td { background:#1c2128; }
-    .empty-row { text-align:center; padding:32px; color:#8b949e; font-size:14px; }
+/* ── TABLE ── */
+.table-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);overflow:hidden;
+}
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;}
+thead th{
+  padding:11px 16px;text-align:left;
+  font-size:11px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.06em;
+  border-bottom:1px solid var(--border);
+  white-space:nowrap;background:var(--surface2);
+}
+tbody td{padding:13px 16px;border-bottom:1px solid var(--border);vertical-align:middle;}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr:hover td{background:rgba(255,255,255,.02);}
+.td-muted{color:var(--muted);font-size:12px;}
 
-    /* PILLS / BADGES */
-    .pill { display:inline-block; font-size:11px; font-weight:600; padding:2px 10px; border-radius:20px; background:#0d1117; border:1px solid #30363d; color:#8b949e; }
-    .pill.green  { background:#0f2a1a; color:#2ea043; border-color:#238636; }
-    .pill.yellow { background:#2a1f0a; color:#d4a017; border-color:#6e4e00; }
-    .pill.red    { background:#2a0a0a; color:#f85149; border-color:#6e0a0a; }
-    .pill.blue   { background:#0a1628; color:#58a6ff; border-color:#1e4080; }
+/* ── BADGES ── */
+.badge{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11px;font-weight:600;padding:3px 10px;
+  border-radius:20px;white-space:nowrap;
+}
+.badge-green {background:rgba(34,197,94,.15); color:#4ade80; border:1px solid rgba(34,197,94,.3);}
+.badge-red   {background:rgba(239,68,68,.15);  color:#f87171; border:1px solid rgba(239,68,68,.3);}
+.badge-yellow{background:rgba(245,158,11,.15); color:#fbbf24; border:1px solid rgba(245,158,11,.3);}
+.badge-blue  {background:rgba(59,130,246,.15); color:#60a5fa; border:1px solid rgba(59,130,246,.3);}
+.badge-gray  {background:rgba(100,116,139,.15);color:#94a3b8; border:1px solid rgba(100,116,139,.3);}
 
-    /* USERS — GATEWAY SELECT */
-    .gw-select { background:#0d1117; border:1px solid #30363d; border-radius:6px; color:#e6edf3; font-size:13px; padding:5px 8px; outline:none; cursor:pointer; }
-    .gw-select:focus { border-color:#58a6ff; }
-    .save-gw-btn { background:#1f6feb; border:none; border-radius:6px; color:#fff; font-size:12px; font-weight:600; padding:5px 10px; cursor:pointer; margin-left:6px; transition:opacity .2s; }
-    .save-gw-btn:hover { opacity:.8; }
+/* ── BUTTONS ── */
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:8px 16px;border-radius:8px;font-size:13px;
+  font-weight:600;border:none;transition:all .2s;
+  white-space:nowrap;cursor:pointer;
+}
+.btn-primary{background:var(--blue);color:#fff;}
+.btn-primary:hover{background:var(--blue2);}
+.btn-success{background:var(--green2);color:#fff;}
+.btn-success:hover{background:#166534;}
+.btn-danger{background:transparent;border:1px solid var(--border);color:var(--muted);}
+.btn-danger:hover{border-color:var(--red);color:var(--red);}
+.btn-sm{padding:5px 12px;font-size:12px;border-radius:6px;}
+.btn-xs{padding:4px 10px;font-size:11px;border-radius:5px;}
 
-    /* TOAST */
-    #toast { position:fixed; bottom:24px; right:24px; background:#161b22; border:1px solid #30363d; border-radius:10px; padding:14px 20px; font-size:14px; font-weight:500; color:#e6edf3; box-shadow:0 8px 24px rgba(0,0,0,.4); transform:translateY(80px); opacity:0; transition:all .3s cubic-bezier(.34,1.56,.64,1); z-index:999; max-width:320px; }
-    #toast.show { transform:translateY(0); opacity:1; }
-    #toast.success { border-left:3px solid #2ea043; }
-    #toast.error   { border-left:3px solid #f85149; }
+/* ── GATEWAY CARDS ── */
+.gw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;margin-bottom:28px;}
+.gw-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);overflow:hidden;
+  transition:border-color .2s;
+}
+.gw-card.is-active{border-color:rgba(34,197,94,.4);}
+.gw-card.is-inactive{opacity:.75;}
+.gw-card-top{
+  padding:18px 20px 14px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.gw-accent{width:100%;height:3px;background:var(--accent,var(--blue));}
+.gw-name{font-size:16px;font-weight:700;color:#fff;}
+.gw-body{padding:16px 20px;}
+.gw-range{
+  font-size:13px;color:var(--muted);margin-bottom:16px;
+  display:flex;align-items:center;gap:6px;
+}
+.gw-range strong{color:var(--text);}
 
-    .footer { text-align:center; padding:24px; font-size:12px; color:#484f58; border-top:1px solid #21262d; margin-top:16px; }
+/* TOGGLE */
+.toggle-wrap{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.toggle-info{font-size:13px;color:var(--muted);}
+.toggle{position:relative;width:44px;height:24px;flex-shrink:0;}
+.toggle input{opacity:0;width:0;height:0;position:absolute;}
+.toggle-slider{
+  position:absolute;inset:0;background:#374151;
+  border-radius:24px;transition:.25s;cursor:pointer;
+}
+.toggle-slider::before{
+  content:'';position:absolute;
+  width:18px;height:18px;left:3px;top:3px;
+  background:#fff;border-radius:50%;transition:.25s;
+}
+.toggle input:checked+.toggle-slider{background:var(--green2);}
+.toggle input:checked+.toggle-slider::before{transform:translateX(20px);}
+.toggle.busy .toggle-slider{opacity:.5;pointer-events:none;}
 
-    @media (max-width: 600px) {
-      .main { padding: 20px 16px; }
-      .providers-grid { grid-template-columns: 1fr; }
-      th:nth-child(n+4), td:nth-child(n+4) { display: none; }
-    }
-  </style>
+/* RANGE EDITOR */
+.range-editor{
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:8px;padding:12px 14px;
+}
+.range-editor-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;font-weight:600;}
+.range-fields{display:flex;align-items:center;gap:8px;}
+.range-field{
+  flex:1;background:var(--surface);border:1px solid var(--border);
+  border-radius:7px;color:var(--text);font-size:13px;
+  padding:8px 10px;outline:none;min-width:0;
+  transition:border-color .2s;
+}
+.range-field:focus{border-color:var(--blue);}
+.range-sep{font-size:12px;color:var(--muted);flex-shrink:0;}
+
+/* USERS TABLE */
+.user-avatar{
+  width:34px;height:34px;border-radius:50%;
+  background:linear-gradient(135deg,var(--blue),#7c3aed);
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;color:#fff;flex-shrink:0;
+}
+.user-info{display:flex;align-items:center;gap:10px;}
+.user-name{font-weight:600;color:#fff;font-size:13px;}
+.user-id{font-size:11px;color:var(--muted);}
+
+/* GW SELECT */
+.gw-select{
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:7px;color:var(--text);font-size:12px;
+  padding:6px 10px;outline:none;cursor:pointer;
+  transition:border-color .2s;max-width:160px;
+}
+.gw-select:focus{border-color:var(--blue);}
+
+/* EMPTY STATE */
+.empty{
+  text-align:center;padding:48px 24px;color:var(--muted);
+}
+.empty-icon{font-size:40px;margin-bottom:12px;display:block;}
+.empty p{font-size:14px;}
+
+/* TOAST */
+#toast{
+  position:fixed;bottom:24px;right:24px;
+  background:var(--surface2);border:1px solid var(--border2);
+  border-radius:10px;padding:14px 18px;
+  font-size:13px;font-weight:500;color:var(--text);
+  box-shadow:0 8px 30px rgba(0,0,0,.5);
+  transform:translateY(100px);opacity:0;
+  transition:all .3s cubic-bezier(.34,1.56,.64,1);
+  z-index:9999;max-width:320px;pointer-events:none;
+}
+#toast.show{transform:translateY(0);opacity:1;}
+#toast.t-success{border-left:3px solid var(--green);}
+#toast.t-error  {border-left:3px solid var(--red);}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .sidebar{width:200px;}
+  .content{margin-left:200px;padding:20px 16px;}
+  .gw-grid{grid-template-columns:1fr;}
+}
+@media(max-width:600px){
+  .sidebar{display:none;}
+  .content{margin-left:0;}
+  .stats-row{grid-template-columns:1fr 1fr;}
+}
+</style>
 </head>
 <body>
 
-<!-- LOGIN -->
+<!-- ══════════════════════════════ LOGIN ══════════════════════════════ -->
 <div id="login-screen">
-  <div class="login-box">
-    <div class="logo">🏦</div>
+  <div class="login-card">
+    <span class="login-icon">🏦</span>
     <h1>Alpha Bank Pay</h1>
-    <p>Painel de Administração</p>
-    <input type="password" id="password-input" placeholder="🔑 Senha de acesso" autocomplete="current-password" />
-    <button onclick="doLogin()">Entrar no Painel</button>
-    <p class="login-error" id="login-error">❌ Senha incorreta. Tente novamente.</p>
+    <p class="subtitle">Painel de Administração</p>
+    <input type="password" id="pwd-input" placeholder="🔑 Senha de acesso" autocomplete="current-password"/>
+    <button class="btn-login" onclick="doLogin()">Acessar Painel</button>
+    <p class="login-err" id="login-err">❌ Senha incorreta. Tente novamente.</p>
   </div>
 </div>
 
-<!-- PAINEL -->
+<!-- ══════════════════════════════ PAINEL ══════════════════════════════ -->
 <div id="panel-screen">
-  <header>
-    <div class="header-inner">
-      <div class="header-logo"><span>🏦</span> Alpha Bank Pay</div>
-      <div class="header-right">
-        <div class="status-dot" title="Bot online"></div>
-        <span style="font-size:13px;color:#8b949e">Online</span>
-        <button class="logout-btn" onclick="logout()">Sair</button>
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">🏦</div>
+      <div>
+        <div class="logo-text">Alpha Bank Pay</div>
+        <div class="logo-sub">Painel Admin</div>
       </div>
     </div>
-  </header>
-
-  <!-- TABS NAV -->
-  <div style="background:#161b22;border-bottom:1px solid #30363d;">
-    <div class="tabs-bar">
-      <button class="tab-btn active" onclick="switchTab('dashboard')">📊 Dashboard</button>
-      <button class="tab-btn"        onclick="switchTab('users')">👥 Usuários</button>
-      <button class="tab-btn"        onclick="switchTab('transactions')">📋 Transações</button>
-      <button class="tab-btn"        onclick="switchTab('gateways')">💳 Gateways</button>
+    <div class="sidebar-nav">
+      <div class="nav-label">Menu</div>
+      <button class="nav-item active" onclick="goTo('dashboard',this)">
+        <span class="nav-icon">📊</span> Dashboard
+      </button>
+      <button class="nav-item" onclick="goTo('users',this)">
+        <span class="nav-icon">👥</span> Usuários
+      </button>
+      <button class="nav-item" onclick="goTo('transactions',this)">
+        <span class="nav-icon">📋</span> Transações
+      </button>
+      <button class="nav-item" onclick="goTo('gateways',this)">
+        <span class="nav-icon">💳</span> Gateways
+      </button>
     </div>
-  </div>
+    <div class="sidebar-footer">
+      <span class="online-dot">Bot Online</span>
+      <button class="btn-logout" onclick="logout()">Sair</button>
+    </div>
+  </nav>
 
-  <div class="main">
+  <!-- CONTENT -->
+  <main class="content">
 
-    <!-- ══════════ TAB: DASHBOARD ══════════ -->
-    <div id="tab-dashboard" class="tab-content active">
-
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-value blue" id="stat-total-providers">—</div>
-          <div class="stat-label">Total Gateways</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value green" id="stat-active-providers">—</div>
-          <div class="stat-label">Gateways Ativos</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value gold" id="dash-total-users">—</div>
-          <div class="stat-label">Total Usuários</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value green" id="dash-total-balance">—</div>
-          <div class="stat-label">Saldo Total na Plataforma</div>
-        </div>
+    <!-- ── DASHBOARD ── -->
+    <div id="page-dashboard" class="page active">
+      <div class="page-header">
+        <div class="page-title">Dashboard</div>
+        <div class="page-sub">Visão geral da plataforma</div>
       </div>
 
-      <div class="section-title">📊 Pagamentos de Hoje</div>
-      <div class="pay-stats-grid">
-        <div class="pay-stat-card">
-          <div class="pay-stat-icon">💰</div>
-          <div class="pay-stat-info">
-            <div class="pay-stat-value" id="stat-total-valor">R$ 0,00</div>
-            <div class="pay-stat-label">Volume recebido hoje</div>
+      <div class="stats-row" id="dash-stats">
+        <div class="stat-card">
+          <div class="stat-icon blue">💰</div>
+          <div class="stat-info">
+            <div class="stat-value" id="d-volume">R$ 0</div>
+            <div class="stat-label">Volume hoje</div>
           </div>
         </div>
-        <div class="pay-stat-card">
-          <div class="pay-stat-icon">✅</div>
-          <div class="pay-stat-info">
-            <div class="pay-stat-value" id="stat-total-count">0</div>
-            <div class="pay-stat-label">Depósitos confirmados</div>
+        <div class="stat-card">
+          <div class="stat-icon green">✅</div>
+          <div class="stat-info">
+            <div class="stat-value" id="d-count">0</div>
+            <div class="stat-label">Depósitos hoje</div>
           </div>
         </div>
-        <div class="pay-stat-card">
-          <div class="pay-stat-icon">📈</div>
-          <div class="pay-stat-info">
-            <div class="pay-stat-value" id="stat-ticket-medio">R$ 0,00</div>
-            <div class="pay-stat-label">Ticket médio</div>
+        <div class="stat-card">
+          <div class="stat-icon yellow">👥</div>
+          <div class="stat-info">
+            <div class="stat-value" id="d-users">0</div>
+            <div class="stat-label">Total usuários</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">💳</div>
+          <div class="stat-info">
+            <div class="stat-value" id="d-balance">R$ 0</div>
+            <div class="stat-label">Saldo na plataforma</div>
           </div>
         </div>
       </div>
 
-      <div class="section-title">🕓 Últimos Depósitos</div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Valor</th><th>Gateway</th><th>Data / Hora</th></tr></thead>
-          <tbody id="history-body"><tr><td colspan="3" class="empty-row">Carregando...</td></tr></tbody>
-        </table>
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">🕓 Últimos Depósitos</div>
+        </div>
+        <div class="table-card">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Valor</th><th>Gateway</th><th>Data / Hora</th></tr></thead>
+              <tbody id="dash-history"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- ══════════ TAB: USUÁRIOS ══════════ -->
-    <div id="tab-users" class="tab-content">
+    <!-- ── USUÁRIOS ── -->
+    <div id="page-users" class="page">
+      <div class="page-header">
+        <div class="page-title">Usuários</div>
+        <div class="page-sub">Gerencie contas e gateways por usuário</div>
+      </div>
 
-      <div class="stats-grid" style="margin-bottom:24px">
+      <div class="stats-row">
         <div class="stat-card">
-          <div class="stat-value blue" id="users-total">—</div>
-          <div class="stat-label">Total de Usuários</div>
+          <div class="stat-icon blue">👥</div>
+          <div class="stat-info"><div class="stat-value" id="u-total">0</div><div class="stat-label">Total</div></div>
         </div>
         <div class="stat-card">
-          <div class="stat-value green" id="users-with-balance">—</div>
-          <div class="stat-label">Com Saldo</div>
+          <div class="stat-icon green">💰</div>
+          <div class="stat-info"><div class="stat-value" id="u-withbal">0</div><div class="stat-label">Com saldo</div></div>
         </div>
         <div class="stat-card">
-          <div class="stat-value gold" id="users-total-balance">—</div>
-          <div class="stat-label">Saldo Total (R$)</div>
+          <div class="stat-icon yellow">🏦</div>
+          <div class="stat-info"><div class="stat-value" id="u-totbal">R$ 0</div><div class="stat-label">Saldo total</div></div>
         </div>
         <div class="stat-card">
-          <div class="stat-value blue" id="users-with-pix">—</div>
-          <div class="stat-label">Com Chave PIX</div>
+          <div class="stat-icon blue">🔑</div>
+          <div class="stat-info"><div class="stat-value" id="u-withpix">0</div><div class="stat-label">Com chave PIX</div></div>
         </div>
       </div>
 
-      <div class="section-title">👥 Todos os Usuários</div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Usuário</th>
-              <th>Saldo</th>
-              <th>Chave PIX</th>
-              <th>Gateway</th>
-              <th>Desde</th>
-            </tr>
-          </thead>
-          <tbody id="users-body"><tr><td colspan="5" class="empty-row">Carregando...</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- ══════════ TAB: TRANSAÇÕES ══════════ -->
-    <div id="tab-transactions" class="tab-content">
-
-      <div class="stats-grid" style="margin-bottom:24px">
-        <div class="stat-card">
-          <div class="stat-value green" id="tx-total-deposits">—</div>
-          <div class="stat-label">Total Depósitos</div>
+      <div class="section">
+        <div class="section-header"><div class="section-title">Todos os Usuários</div></div>
+        <div class="table-card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Usuário</th>
+                  <th>Saldo</th>
+                  <th>Chave PIX</th>
+                  <th>Gateway Preferencial</th>
+                  <th>Cadastro</th>
+                </tr>
+              </thead>
+              <tbody id="users-tbody"></tbody>
+            </table>
+          </div>
         </div>
-        <div class="stat-card">
-          <div class="stat-value blue" id="tx-total-withdrawals">—</div>
-          <div class="stat-label">Total Saques</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value gold" id="tx-volume">—</div>
-          <div class="stat-label">Volume (depósitos)</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value red" id="tx-pending">—</div>
-          <div class="stat-label">Pendentes</div>
-        </div>
-      </div>
-
-      <div class="section-title">📋 Últimas 100 Transações</div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Tipo</th>
-              <th>Usuário</th>
-              <th>Valor</th>
-              <th>Gateway</th>
-              <th>Status</th>
-              <th>Data</th>
-            </tr>
-          </thead>
-          <tbody id="transactions-body"><tr><td colspan="7" class="empty-row">Carregando...</td></tr></tbody>
-        </table>
       </div>
     </div>
 
-    <!-- ══════════ TAB: GATEWAYS ══════════ -->
-    <div id="tab-gateways" class="tab-content">
+    <!-- ── TRANSAÇÕES ── -->
+    <div id="page-transactions" class="page">
+      <div class="page-header">
+        <div class="page-title">Transações</div>
+        <div class="page-sub">Histórico completo de depósitos e saques</div>
+      </div>
 
-      <div class="stats-grid">
+      <div class="stats-row">
         <div class="stat-card">
-          <div class="stat-value blue" id="gw-total">—</div>
-          <div class="stat-label">Total</div>
+          <div class="stat-icon green">⬇️</div>
+          <div class="stat-info"><div class="stat-value" id="t-dep">0</div><div class="stat-label">Depósitos</div></div>
         </div>
         <div class="stat-card">
-          <div class="stat-value green" id="gw-active">—</div>
-          <div class="stat-label">Ativos</div>
+          <div class="stat-icon blue">⬆️</div>
+          <div class="stat-info"><div class="stat-value" id="t-saq">0</div><div class="stat-label">Saques</div></div>
         </div>
         <div class="stat-card">
-          <div class="stat-value red" id="gw-inactive">—</div>
-          <div class="stat-label">Desativados</div>
+          <div class="stat-icon yellow">💰</div>
+          <div class="stat-info"><div class="stat-value" id="t-vol">R$ 0</div><div class="stat-label">Volume total</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon yellow">⏳</div>
+          <div class="stat-info"><div class="stat-value" id="t-pend">0</div><div class="stat-label">Pendentes</div></div>
         </div>
       </div>
 
-      <div class="section-title">💳 Configuração dos Gateways</div>
-      <div class="providers-grid" id="providers-grid">
-        <div style="color:#8b949e;padding:20px">Carregando...</div>
+      <div class="section">
+        <div class="section-header"><div class="section-title">Últimas 100 Transações</div></div>
+        <div class="table-card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th><th>Tipo</th><th>Usuário</th>
+                  <th>Valor</th><th>Gateway</th><th>Status</th><th>Data</th>
+                </tr>
+              </thead>
+              <tbody id="tx-tbody"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
 
-  </div>
+    <!-- ── GATEWAYS ── -->
+    <div id="page-gateways" class="page">
+      <div class="page-header">
+        <div class="page-title">Gateways</div>
+        <div class="page-sub">Configure os gateways de pagamento</div>
+      </div>
 
-  <div class="footer">Alpha Bank Pay &nbsp;·&nbsp; Painel Admin &nbsp;·&nbsp; v2.0.0</div>
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-icon blue">💳</div>
+          <div class="stat-info"><div class="stat-value" id="gw-total">0</div><div class="stat-label">Total</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">✅</div>
+          <div class="stat-info"><div class="stat-value" id="gw-active">0</div><div class="stat-label">Ativos</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon red">⏹️</div>
+          <div class="stat-info"><div class="stat-value" id="gw-inactive">0</div><div class="stat-label">Desativados</div></div>
+        </div>
+      </div>
+
+      <div class="gw-grid" id="gw-grid">
+        <div class="empty"><span class="empty-icon">⏳</span><p>Carregando gateways...</p></div>
+      </div>
+    </div>
+
+  </main>
 </div>
 
 <div id="toast"></div>
 
 <script>
-  let PANEL_KEY = '';
-  let providersData = {};
+let KEY = '';
+let gwData = {};
 
-  // ═══════════════════════ LOGIN ═══════════════════════
-  document.getElementById('password-input').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+// ═══════════════════════ LOGIN ═══════════════════════
+document.getElementById('pwd-input').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 
-  async function doLogin() {
-    const pwd = document.getElementById('password-input').value.trim();
-    if (!pwd) return;
-    try {
-      const res = await fetch('/painel/api/providers', { headers: { 'x-panel-key': pwd } });
-      if (res.status === 401) { document.getElementById('login-error').style.display = 'block'; return; }
-      PANEL_KEY = pwd;
-      localStorage.setItem('abp_key', pwd);
-      document.getElementById('login-error').style.display = 'none';
-      showPanel();
-      loadAll();
-      setInterval(loadAll, 30000);
-    } catch (e) { showToast('❌ Erro ao conectar com o servidor.', 'error'); }
+async function doLogin() {
+  const pwd = document.getElementById('pwd-input').value.trim();
+  if(!pwd) return;
+  try {
+    const r = await api('GET', '/painel/api/providers', null, pwd);
+    if(r === null) { document.getElementById('login-err').style.display='block'; return; }
+    KEY = pwd;
+    localStorage.setItem('abp_k', pwd);
+    document.getElementById('login-err').style.display='none';
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('panel-screen').style.display='block';
+    loadAll();
+    setInterval(loadDashboard, 30000);
+  } catch(e) { toast('❌ Erro ao conectar.', 'error'); }
+}
+
+function logout() {
+  KEY=''; localStorage.removeItem('abp_k');
+  document.getElementById('panel-screen').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('pwd-input').value='';
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const k = localStorage.getItem('abp_k');
+  if(k) { document.getElementById('pwd-input').value=k; doLogin(); }
+});
+
+// ═══════════════════════ NAVIGATION ═══════════════════════
+function goTo(page, btn) {
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  if(page==='users')        loadUsers();
+  if(page==='transactions') loadTransactions();
+  if(page==='gateways')     loadGateways();
+  if(page==='dashboard')    loadDashboard();
+}
+
+// ═══════════════════════ API HELPER ═══════════════════════
+async function api(method, path, body=null, overrideKey=null) {
+  const k = overrideKey || KEY;
+  const opts = { method, headers: { 'x-panel-key': k, 'Content-Type': 'application/json' } };
+  if(body) opts.body = JSON.stringify(body);
+  const r = await fetch(path, opts);
+  if(r.status === 401) return null;
+  return r.json();
+}
+
+// ═══════════════════════ LOAD ALL ═══════════════════════
+function loadAll() { loadDashboard(); loadGateways(); }
+
+// ═══════════════════════ DASHBOARD ═══════════════════════
+async function loadDashboard() {
+  const [stats, users] = await Promise.all([
+    api('GET', '/painel/api/stats'),
+    api('GET', '/painel/api/users')
+  ]);
+  if(!stats || !users) return;
+
+  const t = stats.today;
+  document.getElementById('d-volume').textContent = 'R$ ' + fmt(t.total);
+  document.getElementById('d-count').textContent  = t.count;
+  document.getElementById('d-users').textContent  = users.length;
+  const totBal = users.reduce((s,u)=>s+(u.balance||0),0);
+  document.getElementById('d-balance').textContent = 'R$ ' + fmt(totBal);
+
+  const tbody = document.getElementById('dash-history');
+  if(!stats.history || !stats.history.length) {
+    tbody.innerHTML = `<tr><td colspan="3"><div class="empty"><span class="empty-icon">💤</span><p>Nenhum depósito hoje ainda.</p></div></td></tr>`;
+    return;
   }
+  tbody.innerHTML = stats.history.map(p=>`
+    <tr>
+      <td><strong>R$ ${fmt(p.amountReais)}</strong></td>
+      <td><span class="badge badge-blue">${p.provider}</span></td>
+      <td class="td-muted">${fmtDate(p.paidAt)}</td>
+    </tr>`).join('');
+}
 
-  function logout() {
-    PANEL_KEY = '';
-    localStorage.removeItem('abp_key');
-    document.getElementById('panel-screen').style.display = 'none';
-    document.getElementById('login-screen').style.display = 'flex';
-    document.getElementById('password-input').value = '';
+// ═══════════════════════ GATEWAYS ═══════════════════════
+async function loadGateways() {
+  const data = await api('GET', '/painel/api/providers');
+  if(!data) return;
+  gwData = data;
+  const list = Object.entries(data);
+  const act  = list.filter(([,p])=>p.enabled).length;
+  document.getElementById('gw-total').textContent   = list.length;
+  document.getElementById('gw-active').textContent  = act;
+  document.getElementById('gw-inactive').textContent = list.length - act;
+  renderGateways(data);
+}
+
+function renderGateways(data) {
+  const grid = document.getElementById('gw-grid');
+  if(!Object.keys(data).length) {
+    grid.innerHTML = `<div class="empty"><span class="empty-icon">💳</span><p>Nenhum gateway.</p></div>`;
+    return;
   }
-
-  function showPanel() {
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('panel-screen').style.display = 'block';
-  }
-
-  window.addEventListener('DOMContentLoaded', () => {
-    const saved = localStorage.getItem('abp_key');
-    if (saved) { document.getElementById('password-input').value = saved; doLogin(); }
-  });
-
-  // ═══════════════════════ TABS ═══════════════════════
-  function switchTab(name) {
-    document.querySelectorAll('.tab-btn').forEach((b, i) => {
-      const names = ['dashboard','users','transactions','gateways'];
-      b.classList.toggle('active', names[i] === name);
-    });
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-    document.getElementById('tab-' + name).classList.add('active');
-
-    if (name === 'users')        loadUsers();
-    if (name === 'transactions') loadTransactions();
-    if (name === 'gateways')     loadProviders();
-  }
-
-  // ═══════════════════════ LOAD ALL ═══════════════════════
-  async function loadAll() {
-    await Promise.all([loadStats(), loadProviders(), loadUsers()]);
-  }
-
-  // ═══════════════════════ STATS ═══════════════════════
-  async function loadStats() {
-    try {
-      const res  = await fetch('/painel/api/stats', { headers: { 'x-panel-key': PANEL_KEY } });
-      const data = await res.json();
-      const t    = data.today;
-      const avg  = t.count > 0 ? t.total / t.count : 0;
-
-      document.getElementById('stat-total-valor').textContent  = 'R$ ' + fmt(t.total);
-      document.getElementById('stat-total-count').textContent  = t.count;
-      document.getElementById('stat-ticket-medio').textContent = 'R$ ' + fmt(avg);
-      renderHistory(data.history);
-    } catch (e) { console.error('Erro stats:', e); }
-  }
-
-  function renderHistory(history) {
-    const el = document.getElementById('history-body');
-    if (!history || !history.length) { el.innerHTML = `<tr><td colspan="3" class="empty-row">💤 Nenhum depósito hoje ainda.</td></tr>`; return; }
-    el.innerHTML = history.map(p => `
-      <tr>
-        <td><strong>R$ ${fmt(p.amountReais)}</strong></td>
-        <td><span class="pill">${p.provider}</span></td>
-        <td style="color:#8b949e">${fmtDate(p.paidAt)}</td>
-      </tr>`).join('');
-  }
-
-  // ═══════════════════════ PROVIDERS ═══════════════════════
-  async function loadProviders() {
-    try {
-      const res  = await fetch('/painel/api/providers', { headers: { 'x-panel-key': PANEL_KEY } });
-      providersData = await res.json();
-      const list = Object.entries(providersData);
-      const act  = list.filter(([,p]) => p.enabled).length;
-
-      // dashboard stats
-      document.getElementById('stat-total-providers').textContent  = list.length;
-      document.getElementById('stat-active-providers').textContent = act;
-      // gateways tab stats
-      document.getElementById('gw-total').textContent   = list.length;
-      document.getElementById('gw-active').textContent  = act;
-      document.getElementById('gw-inactive').textContent = list.length - act;
-
-      renderProviders(providersData);
-    } catch (e) { showToast('❌ Erro ao carregar gateways.', 'error'); }
-  }
-
-  function renderProviders(data) {
-    const grid = document.getElementById('providers-grid');
-    grid.innerHTML = '';
-    for (const [id, p] of Object.entries(data)) {
-      const card = document.createElement('div');
-      card.className = `provider-card ${p.enabled ? 'active' : 'inactive'}`;
-      card.id = `card-${id}`;
-      card.style.setProperty('--accent', p.color || '#58a6ff');
-      card.innerHTML = `
-        <div class="card-top">
-          <div class="provider-name">${p.label}</div>
-          <span class="status-badge ${p.enabled ? 'on' : 'off'}" id="badge-${id}">${p.enabled ? '● Ativo' : '○ Inativo'}</span>
+  grid.innerHTML = Object.entries(data).map(([id,p]) => `
+    <div class="gw-card ${p.enabled?'is-active':'is-inactive'}" id="gwcard-${id}">
+      <div class="gw-accent" style="background:${p.color||'#3b82f6'}"></div>
+      <div class="gw-card-top">
+        <div class="gw-name">${p.label}</div>
+        <span class="badge ${p.enabled?'badge-green':'badge-gray'}" id="gwbadge-${id}">
+          ${p.enabled?'● Ativo':'○ Inativo'}
+        </span>
+      </div>
+      <div class="gw-body">
+        <div class="gw-range" id="gwrange-${id}">
+          💰 <strong>R$ ${fmt(p.min)}</strong> &nbsp;—&nbsp; <strong>R$ ${fmt(p.max)}</strong>
         </div>
-        <div class="card-range" id="range-label-${id}">
-          💰 <strong>R$ ${fmt(p.min)}</strong> até <strong>R$ ${fmt(p.max)}</strong>
+
+        <div class="toggle-wrap">
+          <span class="toggle-info" id="gwtlabel-${id}">${p.enabled?'Clique para desativar':'Clique para ativar'}</span>
+          <label class="toggle" id="gwtoggle-${id}">
+            <input type="checkbox" ${p.enabled?'checked':''} onchange="toggleGw('${id}',this)"/>
+            <span class="toggle-slider"></span>
+          </label>
         </div>
+
         <div class="range-editor">
-          <div class="range-editor-label">✏️ Editar faixa</div>
-          <div class="range-inputs">
-            <input class="range-input" id="min-${id}" type="number" value="${p.min}" min="1" />
+          <div class="range-editor-label">✏️ Editar faixa de valor</div>
+          <div class="range-fields">
+            <input class="range-field" id="gwmin-${id}" type="number" value="${p.min}" min="1" placeholder="Mínimo"/>
             <span class="range-sep">até</span>
-            <input class="range-input" id="max-${id}" type="number" value="${p.max}" min="1" />
-            <button class="save-range-btn" onclick="saveRange('${id}')">💾</button>
+            <input class="range-field" id="gwmax-${id}" type="number" value="${p.max}" min="1" placeholder="Máximo"/>
+            <button class="btn btn-success btn-sm" onclick="saveRange('${id}')">Salvar</button>
           </div>
         </div>
-        <div class="toggle-row" style="margin-top:14px">
-          <span class="toggle-label" id="tlabel-${id}">${p.enabled ? 'Clique para desligar' : 'Clique para ligar'}</span>
-          <label class="toggle" id="toggle-${id}">
-            <input type="checkbox" ${p.enabled ? 'checked' : ''} onchange="toggleProvider('${id}', this)" />
-            <span class="slider"></span>
-          </label>
-        </div>`;
-      grid.appendChild(card);
+      </div>
+    </div>`).join('');
+}
+
+async function toggleGw(id, cb) {
+  const tog = document.getElementById(`gwtoggle-${id}`);
+  tog.classList.add('busy');
+  try {
+    const r = await api('POST', `/painel/api/providers/${id}/toggle`);
+    if(r?.success) {
+      const p = r.provider;
+      const card = document.getElementById(`gwcard-${id}`);
+      card.className = `gw-card ${p.enabled?'is-active':'is-inactive'}`;
+      document.getElementById(`gwbadge-${id}`).className  = `badge ${p.enabled?'badge-green':'badge-gray'}`;
+      document.getElementById(`gwbadge-${id}`).textContent = p.enabled?'● Ativo':'○ Inativo';
+      document.getElementById(`gwtlabel-${id}`).textContent = p.enabled?'Clique para desativar':'Clique para ativar';
+      cb.checked = p.enabled;
+      toast(`${p.enabled?'✅':'⏹️'} ${p.label} ${p.enabled?'ativado':'desativado'}!`, p.enabled?'success':'error');
+      loadGateways();
     }
+  } catch(e) { cb.checked=!cb.checked; toast('❌ Erro ao atualizar.','error'); }
+  finally { tog.classList.remove('busy'); }
+}
+
+async function saveRange(id) {
+  const min = parseFloat(document.getElementById(`gwmin-${id}`).value);
+  const max = parseFloat(document.getElementById(`gwmax-${id}`).value);
+  if(!min||!max||min<1||max<=min) { toast('❌ Valores inválidos! Máximo deve ser maior que mínimo.','error'); return; }
+  try {
+    const r = await api('POST', `/painel/api/providers/${id}/range`, {min,max});
+    if(r?.success) {
+      document.getElementById(`gwrange-${id}`).innerHTML =
+        `💰 <strong>R$ ${fmt(r.provider.min)}</strong> &nbsp;—&nbsp; <strong>R$ ${fmt(r.provider.max)}</strong>`;
+      document.getElementById(`gwmin-${id}`).value = r.provider.min;
+      document.getElementById(`gwmax-${id}`).value = r.provider.max;
+      toast(`✅ Faixa de ${r.provider.label} atualizada!`, 'success');
+    } else { toast(`❌ ${r?.error||'Erro ao salvar.'}`, 'error'); }
+  } catch(e) { toast('❌ Erro ao salvar faixa.','error'); }
+}
+
+// ═══════════════════════ USUÁRIOS ═══════════════════════
+async function loadUsers() {
+  const users = await api('GET', '/painel/api/users');
+  if(!users) return;
+  const withBal = users.filter(u=>u.balance>0).length;
+  const totBal  = users.reduce((s,u)=>s+(u.balance||0),0);
+  const withPix = users.filter(u=>u.pixKey).length;
+  document.getElementById('u-total').textContent   = users.length;
+  document.getElementById('u-withbal').textContent = withBal;
+  document.getElementById('u-totbal').textContent  = 'R$ '+fmt(totBal);
+  document.getElementById('u-withpix').textContent = withPix;
+  renderUsers(users);
+}
+
+function renderUsers(users) {
+  const tb = document.getElementById('users-tbody');
+  if(!users.length) {
+    tb.innerHTML=`<tr><td colspan="5"><div class="empty"><span class="empty-icon">👥</span><p>Nenhum usuário ainda.</p></div></td></tr>`;
+    return;
   }
+  const gwOpts = `<option value="">🔀 Automático (por valor)</option>` +
+    Object.entries(gwData).map(([id,p])=>`<option value="${id}">${p.label}</option>`).join('');
 
-  async function toggleProvider(id, checkbox) {
-    const tog = document.getElementById(`toggle-${id}`);
-    tog.classList.add('loading');
-    try {
-      const res  = await fetch(`/painel/api/providers/${id}/toggle`, { method:'POST', headers:{'x-panel-key':PANEL_KEY} });
-      const data = await res.json();
-      if (data.success) {
-        const p = data.provider;
-        document.getElementById(`card-${id}`).className = `provider-card ${p.enabled ? 'active' : 'inactive'}`;
-        document.getElementById(`badge-${id}`).className = `status-badge ${p.enabled ? 'on' : 'off'}`;
-        document.getElementById(`badge-${id}`).textContent = p.enabled ? '● Ativo' : '○ Inativo';
-        document.getElementById(`tlabel-${id}`).textContent = p.enabled ? 'Clique para desligar' : 'Clique para ligar';
-        checkbox.checked = p.enabled;
-        showToast(p.enabled ? `✅ ${p.label} ligado!` : `⏹️ ${p.label} desligado.`, p.enabled ? 'success' : 'error');
-        loadProviders();
-      }
-    } catch (e) { checkbox.checked = !checkbox.checked; showToast('❌ Erro ao atualizar.', 'error'); }
-    finally { tog.classList.remove('loading'); }
+  tb.innerHTML = users.map(u => {
+    const name = [u.firstName,u.lastName].filter(Boolean).join(' ') || `@${u.username||u.chatId}`;
+    const ini  = (name[0]||'?').toUpperCase();
+    const pixHtml = u.pixKey
+      ? `<span style="font-size:12px;font-family:monospace">${maskKey(u.pixKey)}</span> <span class="badge badge-gray" style="font-size:10px">${u.pixKeyType}</span>`
+      : `<span class="td-muted">—</span>`;
+    return `<tr>
+      <td>
+        <div class="user-info">
+          <div class="user-avatar">${ini}</div>
+          <div><div class="user-name">${name}</div><div class="user-id">${u.chatId}</div></div>
+        </div>
+      </td>
+      <td><strong style="color:${u.balance>0?'#4ade80':'#94a3b8'}">R$ ${fmt(u.balance)}</strong></td>
+      <td>${pixHtml}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <select class="gw-select" id="ugw-${u.chatId}">${gwOpts}</select>
+          <button class="btn btn-primary btn-xs" onclick="saveUserGw('${u.chatId}')">Salvar</button>
+        </div>
+      </td>
+      <td class="td-muted">${fmtDate(u.createdAt)}</td>
+    </tr>`;
+  }).join('');
+
+  // Setar valor atual
+  users.forEach(u => {
+    const sel = document.getElementById(`ugw-${u.chatId}`);
+    if(sel && u.gatewayOverride) sel.value = u.gatewayOverride;
+  });
+}
+
+async function saveUserGw(chatId) {
+  const sel = document.getElementById(`ugw-${chatId}`);
+  const val = sel?.value || null;
+  try {
+    const r = await api('POST', `/painel/api/users/${chatId}/gateway`, { gatewayOverride: val||null });
+    if(r?.success) toast(`✅ Gateway de ${chatId} → ${val||'Automático'}`, 'success');
+    else toast('❌ Erro ao salvar.','error');
+  } catch(e) { toast('❌ Erro ao salvar.','error'); }
+}
+
+// ═══════════════════════ TRANSAÇÕES ═══════════════════════
+async function loadTransactions() {
+  const txs = await api('GET', '/painel/api/transactions');
+  if(!txs) return;
+  const deps   = txs.filter(t=>t.type==='deposit');
+  const saqs   = txs.filter(t=>t.type==='withdrawal');
+  const pend   = txs.filter(t=>t.status==='pending').length;
+  const vol    = deps.filter(t=>t.status==='completed').reduce((s,t)=>s+t.amount,0);
+  document.getElementById('t-dep').textContent  = deps.length;
+  document.getElementById('t-saq').textContent  = saqs.length;
+  document.getElementById('t-vol').textContent  = 'R$ '+fmt(vol);
+  document.getElementById('t-pend').textContent = pend;
+  renderTx(txs);
+}
+
+function renderTx(txs) {
+  const tb = document.getElementById('tx-tbody');
+  if(!txs.length) {
+    tb.innerHTML=`<tr><td colspan="7"><div class="empty"><span class="empty-icon">📋</span><p>Nenhuma transação ainda.</p></div></td></tr>`;
+    return;
   }
+  tb.innerHTML = txs.map(t => {
+    const isDep  = t.type==='deposit';
+    const name   = [t.firstName,t.lastName].filter(Boolean).join(' ') || t.username || t.chatId;
+    const sc     = t.status==='completed'?'badge-green':t.status==='failed'?'badge-red':'badge-yellow';
+    const sl     = t.status==='completed'?'✅ Concluído':t.status==='failed'?'❌ Falhou':'⏳ Pendente';
+    const color  = isDep?'#4ade80':'#f87171';
+    const sinal  = isDep?'+':'-';
+    return `<tr>
+      <td class="td-muted">#${t.id}</td>
+      <td><span class="badge ${isDep?'badge-green':'badge-blue'}">${isDep?'⬇ Depósito':'⬆ Saque'}</span></td>
+      <td style="font-size:13px">${name}</td>
+      <td><strong style="color:${color}">${sinal}R$ ${fmt(t.amount)}</strong></td>
+      <td><span class="badge badge-gray">${t.gateway||'—'}</span></td>
+      <td><span class="badge ${sc}">${sl}</span></td>
+      <td class="td-muted">${fmtDate(t.completedAt||t.createdAt)}</td>
+    </tr>`;
+  }).join('');
+}
 
-  async function saveRange(id) {
-    const min = parseFloat(document.getElementById(`min-${id}`).value);
-    const max = parseFloat(document.getElementById(`max-${id}`).value);
-    if (!min || !max || min < 1 || max <= min) { showToast('❌ Valores inválidos!', 'error'); return; }
-    try {
-      const res  = await fetch(`/painel/api/providers/${id}/range`, { method:'POST', headers:{'x-panel-key':PANEL_KEY,'Content-Type':'application/json'}, body:JSON.stringify({min,max}) });
-      const data = await res.json();
-      if (data.success) {
-        document.getElementById(`range-label-${id}`).innerHTML = `💰 <strong>R$ ${fmt(data.provider.min)}</strong> até <strong>R$ ${fmt(data.provider.max)}</strong>`;
-        showToast(`✅ Faixa de ${data.provider.label} atualizada!`, 'success');
-      }
-    } catch (e) { showToast('❌ Erro ao salvar faixa.', 'error'); }
-  }
+// ═══════════════════════ HELPERS ═══════════════════════
+function fmt(v){ return (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtDate(iso){ try{ return new Date(iso).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}); }catch{ return iso||'—'; } }
+function maskKey(k){ if(!k||k.length<=6) return k; return k.slice(0,3)+'***'+k.slice(-3); }
 
-  // ═══════════════════════ USUÁRIOS ═══════════════════════
-  async function loadUsers() {
-    try {
-      const res   = await fetch('/painel/api/users', { headers: { 'x-panel-key': PANEL_KEY } });
-      const users = await res.json();
-
-      const withBalance = users.filter(u => u.balance > 0).length;
-      const totalBal    = users.reduce((s, u) => s + (u.balance || 0), 0);
-      const withPix     = users.filter(u => u.pixKey).length;
-
-      document.getElementById('users-total').textContent        = users.length;
-      document.getElementById('users-with-balance').textContent = withBalance;
-      document.getElementById('users-total-balance').textContent = 'R$ ' + fmt(totalBal);
-      document.getElementById('users-with-pix').textContent     = withPix;
-
-      // dashboard
-      const dtotal = document.getElementById('dash-total-users');
-      const dbal   = document.getElementById('dash-total-balance');
-      if (dtotal) dtotal.textContent = users.length;
-      if (dbal)   dbal.textContent   = 'R$ ' + fmt(totalBal);
-
-      renderUsers(users);
-    } catch (e) { console.error('Erro usuários:', e); }
-  }
-
-  function renderUsers(users) {
-    const el = document.getElementById('users-body');
-    if (!users.length) { el.innerHTML = `<tr><td colspan="5" class="empty-row">💤 Nenhum usuário ainda.</td></tr>`; return; }
-
-    const gwOptions = Object.entries(providersData).map(([id, p]) =>
-      `<option value="${id}">${p.label}</option>`
-    ).join('');
-
-    el.innerHTML = users.map(u => {
-      const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || `@${u.username || u.chatId}`;
-      const pixDisplay = u.pixKey ? `<code style="font-size:12px">${maskKey(u.pixKey)}</code> <span class="pill">${u.pixKeyType}</span>` : `<span style="color:#6e7681">—</span>`;
-      const gwVal = u.gatewayOverride || '';
-      return `
-        <tr>
-          <td>
-            <strong>${name}</strong><br/>
-            <span style="font-size:11px;color:#8b949e">${u.chatId}</span>
-          </td>
-          <td><strong style="color:${u.balance > 0 ? '#2ea043' : '#8b949e'}">R$ ${fmt(u.balance)}</strong></td>
-          <td>${pixDisplay}</td>
-          <td>
-            <select class="gw-select" id="gw-sel-${u.chatId}">
-              <option value="">🔀 Auto (por valor)</option>
-              ${gwOptions}
-            </select>
-            <button class="save-gw-btn" onclick="saveGateway('${u.chatId}')">Salvar</button>
-          </td>
-          <td style="color:#8b949e;font-size:12px">${fmtDate(u.createdAt)}</td>
-        </tr>`;
-    }).join('');
-
-    // Seta o valor atual nos selects
-    users.forEach(u => {
-      const sel = document.getElementById(`gw-sel-${u.chatId}`);
-      if (sel && u.gatewayOverride) sel.value = u.gatewayOverride;
-    });
-  }
-
-  async function saveGateway(chatId) {
-    const sel = document.getElementById(`gw-sel-${chatId}`);
-    const val = sel ? sel.value : null;
-    try {
-      const res  = await fetch(`/painel/api/users/${chatId}/gateway`, {
-        method:'POST',
-        headers:{'x-panel-key':PANEL_KEY,'Content-Type':'application/json'},
-        body:JSON.stringify({ gatewayOverride: val || null })
-      });
-      const data = await res.json();
-      if (data.success) {
-        showToast(`✅ Gateway de ${chatId} → ${val || 'Auto'}`, 'success');
-      }
-    } catch (e) { showToast('❌ Erro ao salvar.', 'error'); }
-  }
-
-  // ═══════════════════════ TRANSAÇÕES ═══════════════════════
-  async function loadTransactions() {
-    try {
-      const res  = await fetch('/painel/api/transactions', { headers: { 'x-panel-key': PANEL_KEY } });
-      const txs  = await res.json();
-
-      const deposits    = txs.filter(t => t.type === 'deposit');
-      const withdrawals = txs.filter(t => t.type === 'withdrawal');
-      const pending     = txs.filter(t => t.status === 'pending').length;
-      const volume      = deposits.filter(t => t.status === 'completed').reduce((s,t) => s + t.amount, 0);
-
-      document.getElementById('tx-total-deposits').textContent    = deposits.length;
-      document.getElementById('tx-total-withdrawals').textContent = withdrawals.length;
-      document.getElementById('tx-volume').textContent            = 'R$ ' + fmt(volume);
-      document.getElementById('tx-pending').textContent           = pending;
-
-      renderTransactions(txs);
-    } catch (e) { console.error('Erro transações:', e); }
-  }
-
-  function renderTransactions(txs) {
-    const el = document.getElementById('transactions-body');
-    if (!txs.length) { el.innerHTML = `<tr><td colspan="7" class="empty-row">💤 Nenhuma transação ainda.</td></tr>`; return; }
-
-    el.innerHTML = txs.map(t => {
-      const typeIcon  = t.type === 'deposit' ? '⬇️' : '⬆️';
-      const typeLabel = t.type === 'deposit' ? 'Depósito' : 'Saque';
-      const sinal     = t.type === 'deposit' ? '+' : '-';
-      const color     = t.type === 'deposit' ? '#2ea043' : '#f85149';
-      const statusClass = t.status === 'completed' ? 'green' : t.status === 'failed' ? 'red' : 'yellow';
-      const statusLabel = t.status === 'completed' ? '✅ Concluído' : t.status === 'failed' ? '❌ Falhou' : '⏳ Pendente';
-      const name = [t.firstName, t.lastName].filter(Boolean).join(' ') || t.username || t.chatId;
-      const data = t.completedAt || t.createdAt;
-      return `
-        <tr>
-          <td style="color:#8b949e;font-size:12px">#${t.id}</td>
-          <td>${typeIcon} ${typeLabel}</td>
-          <td><span style="font-size:13px">${name}</span></td>
-          <td><strong style="color:${color}">${sinal}R$ ${fmt(t.amount)}</strong></td>
-          <td><span class="pill">${t.gateway || '—'}</span></td>
-          <td><span class="pill ${statusClass}">${statusLabel}</span></td>
-          <td style="color:#8b949e;font-size:12px">${fmtDate(data)}</td>
-        </tr>`;
-    }).join('');
-  }
-
-  // ═══════════════════════ HELPERS ═══════════════════════
-  function fmt(v) { return (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }); }
-  function fmtDate(iso) { try { return new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }); } catch { return iso; } }
-  function maskKey(k) { if (!k || k.length <= 6) return k; return k.slice(0,3) + '***' + k.slice(-3); }
-
-  let toastTimer;
-  function showToast(msg, type = 'success') {
-    const el = document.getElementById('toast');
-    el.textContent = msg;
-    el.className = `show ${type}`;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { el.className = ''; }, 3500);
-  }
+let _toastT;
+function toast(msg, type='success') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show t-${type}`;
+  clearTimeout(_toastT);
+  _toastT = setTimeout(()=>{ el.className=''; }, 3500);
+}
 </script>
 </body>
 </html>
