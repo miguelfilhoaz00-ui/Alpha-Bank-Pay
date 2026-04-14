@@ -108,13 +108,12 @@ clientBot.onText(/\/start(?:\s+(.+))?/, (msg, match) => {
     `📌 *Comandos:*\n\n` +
     `💰 /pix <valor> — Gerar PIX para depósito\n` +
     `💳 /saldo — Ver seu saldo atual\n` +
-    `💸 /sacar <valor> — Sacar para sua chave PIX\n` +
+    `💸 /sacar <valor> — Sacar para qualquer chave PIX\n` +
     `📋 /extrato — Histórico de transações\n` +
-    `🔑 /cadastrar <chave> — Cadastrar chave PIX\n` +
     `🤝 /indicar — Ganhe bônus indicando amigos\n` +
     `🆘 /ajuda — Ajuda completa\n` +
     `━━━━━━━━━━━━━━━━━━━━\n\n` +
-    `_Para sacar, primeiro use /cadastrar para registrar sua chave PIX._`,
+    `_Para sacar, use /sacar e informe sua chave PIX na hora._`,
     { parse_mode: 'Markdown' }
   ).catch(() => {});
 });
@@ -163,15 +162,11 @@ clientBot.onText(/\/ajuda/, (msg) => {
     `💳 */saldo*\n` +
     `  Exibe seu saldo disponível\n\n` +
     `💸 */sacar <valor>*\n` +
-    `  Solicita saque para sua chave PIX cadastrada\n` +
+    `  Solicita saque para qualquer chave PIX\n` +
+    `  O bot pedirá a chave na hora — sem necessidade de cadastro!\n` +
     `  Ex: \`/sacar 200\`\n\n` +
     `📋 */extrato*\n` +
     `  Últimas 10 transações\n\n` +
-    `🔑 */cadastrar <chave> [tipo]*\n` +
-    `  Cadastra chave PIX para saques\n` +
-    `  Tipos: CPF, CNPJ, EMAIL, PHONE, EVP\n` +
-    `  Ex: \`/cadastrar email@gmail.com\`\n` +
-    `  Ex: \`/cadastrar 11999999999 PHONE\`\n` +
     `━━━━━━━━━━━━━━━━━━━━`,
     { parse_mode: 'Markdown' }
   ).catch(() => {});
@@ -430,16 +425,6 @@ clientBot.onText(/\/sacar(?:\s+(.+))?/, async (msg, match) => {
     ).catch(() => {});
   }
 
-  if (!user.pixKey) {
-    return clientBot.sendMessage(
-      chatId,
-      `❌ *Você não tem chave PIX cadastrada!*\n\n` +
-      `Use /cadastrar para registrar sua chave PIX antes de sacar.\n\n` +
-      `Exemplo: \`/cadastrar email@gmail.com\``,
-      { parse_mode: 'Markdown' }
-    ).catch(() => {});
-  }
-
   if (user.balance < valor) {
     return clientBot.sendMessage(
       chatId,
@@ -450,26 +435,15 @@ clientBot.onText(/\/sacar(?:\s+(.+))?/, async (msg, match) => {
     ).catch(() => {});
   }
 
-  // Armazena saque pendente e pede confirmação
-  pendingWithdrawals.set(String(chatId), { amount: valor });
+  // Aguarda chave PIX do usuário
+  pendingWithdrawals.set(String(chatId), { amount: valor, step: 'awaiting_key' });
 
   clientBot.sendMessage(
     chatId,
-    `⚠️ *Confirmar Saque?*\n\n` +
-    `━━━━━━━━━━━━━━━━━━━━\n` +
-    `💸 *Valor:* R$ ${formatBRL(valor)}\n` +
-    `🔑 *Destino:* \`${maskPixKey(user.pixKey)}\` _(${user.pixKeyType})_\n` +
-    `💳 *Saldo após saque:* R$ ${formatBRL(user.balance - valor)}\n` +
-    `━━━━━━━━━━━━━━━━━━━━`,
-    {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [[
-          { text: '✅ Confirmar saque', callback_data: `confirm_wd_${chatId}` },
-          { text: '❌ Cancelar',        callback_data: `cancel_wd_${chatId}` }
-        ]]
-      }
-    }
+    `💸 *Saque de R$ ${formatBRL(valor)}*\n\n` +
+    `🔑 Digite sua *chave PIX* para receber:\n\n` +
+    `_Pode ser CPF, CNPJ, e-mail, celular ou chave aleatória._`,
+    { parse_mode: 'Markdown' }
   ).catch(() => {});
 });
 
@@ -510,14 +484,16 @@ clientBot.on('callback_query', async (query) => {
     }
 
     try {
-      const result = await xpaytech.withdraw(chatId, pending.amount, user.pixKey, user.pixKeyType);
+      const pixKey     = pending.pixKey;
+      const pixKeyType = pending.pixKeyType;
+      const result = await xpaytech.withdraw(chatId, pending.amount, pixKey, pixKeyType);
       completeWithdrawal(withdrawal.txId, result.orderId);
 
       clientBot.editMessageText(
         `✅ *Saque Enviado com Sucesso!*\n\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `💸 *Valor:* R$ ${formatBRL(pending.amount)}\n` +
-        `🔑 *Destino:* \`${maskPixKey(user.pixKey)}\`\n` +
+        `🔑 *Destino:* \`${maskPixKey(pixKey)}\` _(${pixKeyType})_\n` +
         `💳 *Saldo restante:* R$ ${formatBRL(withdrawal.user.balance)}\n` +
         `━━━━━━━━━━━━━━━━━━━━\n\n` +
         `_O valor chegará em instantes via PIX!_ 🚀`,
@@ -529,7 +505,7 @@ clientBot.on('callback_query', async (query) => {
         `💸 *SAQUE PROCESSADO*\n\n` +
         `👤 *Usuário:* ${user.firstName || chatId}\n` +
         `💰 *Valor:* R$ ${formatBRL(pending.amount)}\n` +
-        `🔑 *Chave:* \`${user.pixKey}\` (${user.pixKeyType})\n` +
+        `🔑 *Chave:* \`${pixKey}\` (${pixKeyType})\n` +
         `📅 *Data:* ${nowBR()}`,
         { parse_mode: 'Markdown' }
       ).catch(() => {});
@@ -555,15 +531,54 @@ clientBot.on('callback_query', async (query) => {
   }
 });
 
-// Mensagens sem comando
+// ==========================
+// MENSAGENS SEM COMANDO
+// Captura chave PIX quando usuário está em fluxo de saque
+// ==========================
 clientBot.on('message', (msg) => {
-  if (msg.text && !msg.text.startsWith('/') && !msg.via_bot) {
+  if (!msg.text || msg.text.startsWith('/') || msg.via_bot) return;
+
+  const chatId  = String(msg.chat.id);
+  const pending = pendingWithdrawals.get(chatId);
+
+  // Fluxo de saque — aguardando chave PIX
+  if (pending && pending.step === 'awaiting_key') {
+    const pixKey     = msg.text.trim();
+    const pixKeyType = detectPixKeyType(pixKey);
+    const user       = getUser(chatId);
+
+    if (!user) return;
+
+    // Atualiza pending com a chave e avança para confirmação
+    pendingWithdrawals.set(chatId, { amount: pending.amount, pixKey, pixKeyType, step: 'confirming' });
+
     clientBot.sendMessage(
-      msg.chat.id,
-      `👋 Use os comandos:\n\n💰 /pix <valor>\n💳 /saldo\n💸 /sacar <valor>\n📋 /extrato\n🆘 /ajuda`,
-      { parse_mode: 'Markdown' }
+      chatId,
+      `⚠️ *Confirmar Saque?*\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `💸 *Valor:* R$ ${formatBRL(pending.amount)}\n` +
+      `🔑 *Chave PIX:* \`${maskPixKey(pixKey)}\` _(${pixKeyType})_\n` +
+      `💳 *Saldo após saque:* R$ ${formatBRL(user.balance - pending.amount)}\n` +
+      `━━━━━━━━━━━━━━━━━━━━`,
+      {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [[
+            { text: '✅ Confirmar saque', callback_data: `confirm_wd_${chatId}` },
+            { text: '❌ Cancelar',        callback_data: `cancel_wd_${chatId}` }
+          ]]
+        }
+      }
     ).catch(() => {});
+    return;
   }
+
+  // Mensagem comum sem contexto
+  clientBot.sendMessage(
+    chatId,
+    `👋 Use os comandos:\n\n💰 /pix <valor>\n💳 /saldo\n💸 /sacar <valor>\n📋 /extrato\n🆘 /ajuda`,
+    { parse_mode: 'Markdown' }
+  ).catch(() => {});
 });
 
 // ==========================
