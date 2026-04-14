@@ -282,7 +282,9 @@ tbody tr:hover td{background:rgba(255,255,255,.02);}
               <tr>
                 <th>Usuário</th>
                 <th>Saldo</th>
-                <th>Taxa %</th>
+                <th>Taxa cliente %</th>
+                <th>Taxa base (dono) %</th>
+                <th>Taxa referral (gerente) %</th>
                 <th>Gateway</th>
                 <th>Status</th>
                 <th>Ações</th>
@@ -563,37 +565,58 @@ async function loadUsers() {
 function renderUsers(users) {
   const tb = document.getElementById('users-tbody');
   if(!users.length) {
-    tb.innerHTML=`<tr><td colspan="6"><div class="empty"><span class="empty-icon">👥</span><p>Nenhum usuário ainda.</p></div></td></tr>`;
+    tb.innerHTML=`<tr><td colspan="8"><div class="empty"><span class="empty-icon">👥</span><p>Nenhum usuário ainda.</p></div></td></tr>`;
     return;
   }
   const gwOpts = `<option value="">🔀 Auto</option>` +
     Object.entries(gwData).map(([id,p])=>`<option value="${id}">${p.label}</option>`).join('');
 
   tb.innerHTML = users.map(u => {
-    const name   = [u.firstName,u.lastName].filter(Boolean).join(' ') || `@${u.username||u.chatId}`;
-    const ini    = (name[0]||'?').toUpperCase();
-    const banned = u.banned ? `<span class="badge badge-red" style="margin-left:6px">🚫</span>` : '';
+    const name      = [u.firstName,u.lastName].filter(Boolean).join(' ') || `@${u.username||u.chatId}`;
+    const ini       = (name[0]||'?').toUpperCase();
+    const isManager = (u.commissionRate||0) > 0;
+    const bannedBadge = u.banned ? `<span class="badge badge-red" style="margin-left:6px">🚫</span>` : '';
+    const managerBadge = isManager ? `<span class="badge badge-purple" style="margin-left:6px">⚙ Gerente</span>` : '';
+
+    // Spread do gerente
+    const spread = isManager && u.referralFee > 0
+      ? `<span class="td-muted" style="font-size:11px;display:block">spread: ${(u.referralFee - u.commissionRate).toFixed(2)}%</span>`
+      : '';
+
     return `<tr>
       <td>
         <div class="user-info">
-          <div class="user-avatar">${ini}</div>
+          <div class="user-avatar" style="${isManager?'background:linear-gradient(135deg,#8b5cf6,#3b82f6)':''}">${ini}</div>
           <div>
-            <div class="user-name">${name}${banned}</div>
-            <div class="user-id">${u.chatId}${u.referralCode ? ` · 🔗${u.referralCode}` : ''}</div>
+            <div class="user-name">${name}${bannedBadge}${managerBadge}</div>
+            <div class="user-id">${u.chatId}${u.referralCode ? ` · 🔗 ${u.referralCode}` : ''}</div>
+            ${isManager ? `<div class="user-id" style="color:#a78bfa">💰 Ganhos: R$ ${fmt(u.referralEarned||0)}</div>` : ''}
           </div>
         </div>
       </td>
       <td><strong style="color:${u.balance>0?'#4ade80':'#94a3b8'}">R$ ${fmt(u.balance)}</strong></td>
       <td>
         <div style="display:flex;align-items:center;gap:6px">
-          <input class="mini-input" id="ufee-${u.chatId}" type="number" value="${u.depositFee||0}" min="0" max="100" step="0.1" title="Taxa %"/>
-          <button class="btn btn-warning btn-xs" onclick="saveUserFee('${u.chatId}')">Salvar</button>
+          <input class="mini-input" id="ufee-${u.chatId}" type="number" value="${u.depositFee||0}" min="0" max="100" step="0.1" title="Taxa que este usuário paga ao depositar"/>
+          <button class="btn btn-warning btn-xs" onclick="saveUserFee('${u.chatId}')">✔</button>
         </div>
       </td>
       <td>
         <div style="display:flex;align-items:center;gap:6px">
+          <input class="mini-input" id="ucom-${u.chatId}" type="number" value="${u.commissionRate||0}" min="0" max="100" step="0.1" title="% que o dono garante (taxa base do gerente)"/>
+          <button class="btn btn-primary btn-xs" onclick="saveUserCommission('${u.chatId}')">✔</button>
+        </div>
+      </td>
+      <td>
+        ${isManager
+          ? `<span style="color:#a78bfa;font-weight:600">${u.referralFee||0}%</span>${spread}`
+          : `<span class="td-muted">—</span>`
+        }
+      </td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px">
           <select class="gw-select" id="ugw-${u.chatId}">${gwOpts}</select>
-          <button class="btn btn-primary btn-xs" onclick="saveUserGw('${u.chatId}')">Salvar</button>
+          <button class="btn btn-primary btn-xs" onclick="saveUserGw('${u.chatId}')">✔</button>
         </div>
       </td>
       <td>
@@ -601,9 +624,9 @@ function renderUsers(users) {
       </td>
       <td>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn btn-success btn-xs" onclick="openBalModal('${u.chatId}','${name.replace(/'/g,"\\'")}')">💰 Saldo</button>
+          <button class="btn btn-success btn-xs" onclick="openBalModal('${u.chatId}','${name.replace(/'/g,"\\'")}')">💰</button>
           <button class="btn ${u.banned?'btn-warning':'btn-danger'} btn-xs" onclick="toggleBan('${u.chatId}',${u.banned?0:1},'${name.replace(/'/g,"\\'")}')">
-            ${u.banned ? '✅ Desbanir' : '🚫 Banir'}
+            ${u.banned ? '✅' : '🚫'}
           </button>
         </div>
       </td>
@@ -634,6 +657,19 @@ async function saveUserFee(chatId) {
     const r = await api('POST', `/painel/api/users/${chatId}/fee`, { fee });
     if(r?.success) toast(`✅ Taxa de ${chatId} → ${fee}%`, 'success');
     else toast(`❌ ${r?.error||'Erro ao salvar.'}`, 'error');
+  } catch(e) { toast('❌ Erro ao salvar.','error'); }
+}
+
+async function saveUserCommission(chatId) {
+  const inp  = document.getElementById(`ucom-${chatId}`);
+  const rate = parseFloat(inp?.value);
+  if(isNaN(rate) || rate < 0 || rate > 100) { toast('❌ Taxa inválida (0–100).','error'); return; }
+  try {
+    const r = await api('POST', `/painel/api/users/${chatId}/commission`, { commissionRate: rate });
+    if(r?.success) {
+      toast(`✅ Taxa base de ${chatId} → ${rate}%`, 'success');
+      loadUsers(); // recarrega para atualizar badge de gerente
+    } else toast(`❌ ${r?.error||'Erro ao salvar.'}`, 'error');
   } catch(e) { toast('❌ Erro ao salvar.','error'); }
 }
 

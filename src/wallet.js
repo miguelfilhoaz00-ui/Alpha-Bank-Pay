@@ -1,7 +1,5 @@
-const db                                               = require('./database');
+const db                                                     = require('./database');
 const { creditBalance, debitBalance, forceBalance, getUser } = require('./users');
-
-const REFERRAL_BONUS = 10; // R$ de bônus para quem indicou
 
 // ==========================
 // CRIAR DEPÓSITO PENDENTE
@@ -17,7 +15,7 @@ function createDepositTx(chatId, orderId, amount, gateway) {
 
 // ==========================
 // CONFIRMAR DEPÓSITO
-// Aplica taxa de depósito e verifica bônus de indicação
+// Lógica de split: taxa total → dono leva commissionRate%, gerente leva o spread
 // ==========================
 function completeDeposit(orderId) {
   const tx = db.prepare(
@@ -28,47 +26,84 @@ function completeDeposit(orderId) {
 
   const user       = getUser(tx.chatId);
   const feePct     = user?.depositFee || 0;
-  const feeAmount  = feePct > 0 ? Math.round(tx.amount * feePct / 100 * 100) / 100 : 0;
-  const netAmount  = Math.round((tx.amount - feeAmount) * 100) / 100;
+  const feeAmount  = feePct > 0 ? _round2(tx.amount * feePct / 100) : 0;
+  const netAmount  = _round2(tx.amount - feeAmount);
 
+  // Atualiza transação com taxa e status
   db.prepare(`
     UPDATE transactions
     SET status = 'completed', completedAt = datetime('now'), fee = ?
     WHERE orderId = ? AND type = 'deposit'
   `).run(feeAmount, orderId);
 
+  // Credita ao cliente o valor líquido
   const updatedUser = creditBalance(tx.chatId, netAmount);
-  console.log(`💰 [Wallet] Depósito | chatId: ${tx.chatId} | R$ ${netAmount.toFixed(2)} (taxa: R$ ${feeAmount.toFixed(2)}) | Saldo: R$ ${updatedUser.balance.toFixed(2)}`);
+  console.log(
+    `💰 [Wallet] Depósito | chatId: ${tx.chatId} | bruto: R$${tx.amount.toFixed(2)}` +
+    ` | taxa: R$${feeAmount.toFixed(2)} (${feePct}%) | líquido: R$${netAmount.toFixed(2)}`
+  );
 
-  // Verificar bônus de indicação (apenas no PRIMEIRO depósito)
-  let referralBonus = null;
-  if (updatedUser.referredBy) {
-    const prevCount = db.prepare(`
-      SELECT COUNT(*) as cnt FROM transactions
-      WHERE chatId = ? AND type = 'deposit' AND status = 'completed' AND orderId != ?
-    `).get(String(tx.chatId), orderId).cnt;
+  // ==========================
+  // SISTEMA DE COMISSÃO DO GERENTE
+  // Split da taxa: ownerCut + managerCommission = feeAmount
+  // ==========================
+  let commissionResult = null;
 
-    if (prevCount === 0) {
-      creditBalance(updatedUser.referredBy, REFERRAL_BONUS);
-      db.prepare(`UPDATE users SET referralEarned = ROUND(referralEarned + ?, 2) WHERE chatId = ?`)
-        .run(REFERRAL_BONUS, updatedUser.referredBy);
-      // Registrar bônus como transação
-      db.prepare(`
-        INSERT INTO transactions (chatId, type, amount, gateway, status, note, completedAt)
-        VALUES (?, 'admin_credit', ?, 'sistema', 'completed', ?, datetime('now'))
-      `).run(updatedUser.referredBy, REFERRAL_BONUS, `Bônus indicação — ${updatedUser.firstName || tx.chatId}`);
+  if (updatedUser.referredBy && feeAmount > 0) {
+    const manager = getUser(updatedUser.referredBy);
 
-      referralBonus = { referrerId: updatedUser.referredBy, amount: REFERRAL_BONUS };
-      console.log(`🎁 [Wallet] Bônus indicação | referrer: ${updatedUser.referredBy} | R$ ${REFERRAL_BONUS}`);
+    if (manager && manager.commissionRate > 0) {
+      const ownerCut          = _round2(tx.amount * manager.commissionRate / 100);
+      const managerCommission = _round2(feeAmount - ownerCut);
+
+      if (managerCommission > 0) {
+        // Credita comissão ao gerente
+        creditBalance(manager.chatId, managerCommission);
+
+        // Atualiza total ganho por indicações
+        db.prepare(`
+          UPDATE users SET referralEarned = ROUND(referralEarned + ?, 2)
+          WHERE chatId = ?
+        `).run(managerCommission, manager.chatId);
+
+        // Registra como transação do tipo commission
+        db.prepare(`
+          INSERT INTO transactions (chatId, type, amount, gateway, status, note, completedAt)
+          VALUES (?, 'commission', ?, 'sistema', 'completed', ?, datetime('now'))
+        `).run(
+          manager.chatId,
+          managerCommission,
+          `Comissão de ${updatedUser.firstName || tx.chatId} — ${feePct}% taxa / ${manager.commissionRate}% base`
+        );
+
+        commissionResult = {
+          managerId:          manager.chatId,
+          managerName:        manager.firstName,
+          managerCommission,
+          ownerCut,
+          feePct,
+          commissionRatePct:  manager.commissionRate,
+        };
+
+        console.log(
+          `🤝 [Wallet] Comissão gerente | manager: ${manager.chatId}` +
+          ` | comissão: R$${managerCommission.toFixed(2)} (spread ${feePct - manager.commissionRate}%)` +
+          ` | dono: R$${ownerCut.toFixed(2)}`
+        );
+      }
     }
   }
 
-  return { tx: { ...tx, fee: feeAmount, netAmount }, user: updatedUser, referralBonus };
+  return {
+    tx:               { ...tx, fee: feeAmount, netAmount },
+    user:             updatedUser,
+    commissionResult, // null se não houve comissão de gerente
+  };
 }
 
 // ==========================
 // CRIAR SAQUE
-// Debita o saldo antes de enviar para a API
+// Debita saldo antes de enviar para a API
 // ==========================
 function createWithdrawalTx(chatId, amount, gateway = 'XPayTech') {
   const user = debitBalance(chatId, amount);
@@ -79,7 +114,7 @@ function createWithdrawalTx(chatId, amount, gateway = 'XPayTech') {
     VALUES (?, 'withdrawal', ?, ?, 'pending')
   `).run(String(chatId), amount, gateway);
 
-  console.log(`💸 [Wallet] Saque iniciado | chatId: ${chatId} | R$ ${amount.toFixed(2)} | Saldo: R$ ${user.balance.toFixed(2)}`);
+  console.log(`💸 [Wallet] Saque iniciado | chatId: ${chatId} | R$${amount.toFixed(2)} | Saldo restante: R$${user.balance.toFixed(2)}`);
   return { txId: result.lastInsertRowid, user };
 }
 
@@ -95,7 +130,7 @@ function completeWithdrawal(txId, orderId = null) {
 }
 
 // ==========================
-// FALHA NO SAQUE — ESTORNA O SALDO
+// FALHA NO SAQUE — ESTORNA SALDO
 // ==========================
 function failWithdrawal(txId) {
   const tx = db.prepare('SELECT * FROM transactions WHERE id = ?').get(txId);
@@ -104,17 +139,15 @@ function failWithdrawal(txId) {
   creditBalance(tx.chatId, tx.amount);
 
   db.prepare(`
-    UPDATE transactions
-    SET status = 'failed', completedAt = datetime('now')
+    UPDATE transactions SET status = 'failed', completedAt = datetime('now')
     WHERE id = ?
   `).run(txId);
 
-  console.log(`⚠️  [Wallet] Saque falhou — estornado | chatId: ${tx.chatId} | R$ ${tx.amount.toFixed(2)}`);
+  console.log(`⚠️  [Wallet] Saque estornado | chatId: ${tx.chatId} | R$${tx.amount.toFixed(2)}`);
 }
 
 // ==========================
 // AJUSTE MANUAL DE SALDO (admin)
-// amount positivo = crédito, negativo = débito
 // ==========================
 function adminAdjust(chatId, amount, note = 'Ajuste manual') {
   const type = amount >= 0 ? 'admin_credit' : 'admin_debit';
@@ -151,6 +184,13 @@ function getAllTransactions(limit = 100) {
     ORDER BY t.createdAt DESC
     LIMIT ?
   `).all(limit);
+}
+
+// ==========================
+// HELPER
+// ==========================
+function _round2(v) {
+  return Math.round(v * 100) / 100;
 }
 
 module.exports = {

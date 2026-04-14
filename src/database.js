@@ -50,12 +50,14 @@ db.exec(`
 // MIGRAÇÕES — adiciona colunas sem quebrar DB existente
 // ==========================
 const migrations = [
-  `ALTER TABLE users ADD COLUMN banned       INTEGER DEFAULT 0`,
-  `ALTER TABLE users ADD COLUMN depositFee   REAL    DEFAULT 0`,
-  `ALTER TABLE users ADD COLUMN referralCode TEXT    DEFAULT NULL`,
-  `ALTER TABLE users ADD COLUMN referredBy   TEXT    DEFAULT NULL`,
-  `ALTER TABLE users ADD COLUMN referralEarned REAL  DEFAULT 0`,
-  `ALTER TABLE transactions ADD COLUMN fee   REAL    DEFAULT 0`,
+  `ALTER TABLE users ADD COLUMN banned          INTEGER DEFAULT 0`,
+  `ALTER TABLE users ADD COLUMN depositFee      REAL    DEFAULT 0`,
+  `ALTER TABLE users ADD COLUMN referralCode    TEXT    DEFAULT NULL`,
+  `ALTER TABLE users ADD COLUMN referredBy      TEXT    DEFAULT NULL`,
+  `ALTER TABLE users ADD COLUMN referralEarned  REAL    DEFAULT 0`,
+  `ALTER TABLE users ADD COLUMN commissionRate  REAL    DEFAULT 0`,
+  `ALTER TABLE users ADD COLUMN referralFee     REAL    DEFAULT 0`,
+  `ALTER TABLE transactions ADD COLUMN fee      REAL    DEFAULT 0`,
 ];
 for (const sql of migrations) {
   try { db.exec(sql); } catch (e) { /* coluna já existe — ignorar */ }

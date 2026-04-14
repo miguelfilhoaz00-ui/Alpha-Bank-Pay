@@ -85,7 +85,8 @@ function setBanned(chatId, banned) {
 }
 
 // ==========================
-// DEFINIR TAXA DE DEPÓSITO (%)
+// DEFINIR TAXA DE DEPÓSITO DO USUÁRIO (%)
+// Aplicada quando ESTE usuário deposita
 // ==========================
 function setDepositFee(chatId, fee) {
   db.prepare(`
@@ -96,14 +97,55 @@ function setDepositFee(chatId, fee) {
 }
 
 // ==========================
+// DEFINIR TAXA BASE DO GERENTE (commissionRate)
+// % que o DONO garante sobre os depósitos dos clientes deste gerente
+// Definido pelo admin — só admin pode alterar
+// ==========================
+function setCommissionRate(chatId, rate) {
+  db.prepare(`
+    UPDATE users SET commissionRate = ?, updatedAt = datetime('now')
+    WHERE chatId = ?
+  `).run(Number(rate) || 0, String(chatId));
+  return getUser(chatId);
+}
+
+// ==========================
+// DEFINIR TAXA DO REFERRAL (referralFee)
+// % que o GERENTE cobra dos seus clientes indicados
+// Deve ser >= commissionRate — validado antes de chamar
+// ==========================
+function setReferralFee(chatId, fee) {
+  db.prepare(`
+    UPDATE users SET referralFee = ?, updatedAt = datetime('now')
+    WHERE chatId = ?
+  `).run(Number(fee) || 0, String(chatId));
+  return getUser(chatId);
+}
+
+// ==========================
 // DEFINIR INDICADOR (referredBy)
-// Só aplica se o usuário ainda não tem indicador
+// Só aplica se o usuário ainda não tem indicador.
+// Também aplica a referralFee do gerente como depositFee do novo usuário.
 // ==========================
 function setReferredBy(chatId, referrerChatId) {
+  const referrer = getUser(referrerChatId);
+  if (!referrer) return getUser(chatId);
+
+  // Só registra se ainda não tem indicador
   db.prepare(`
     UPDATE users SET referredBy = ?, updatedAt = datetime('now')
     WHERE chatId = ? AND referredBy IS NULL
   `).run(String(referrerChatId), String(chatId));
+
+  // Aplica automaticamente a taxa do gerente ao novo cliente
+  if (referrer.referralFee > 0) {
+    db.prepare(`
+      UPDATE users SET depositFee = ?, updatedAt = datetime('now')
+      WHERE chatId = ?
+    `).run(referrer.referralFee, String(chatId));
+    console.log(`💸 [Users] Taxa automática aplicada | cliente: ${chatId} | gerente: ${referrerChatId} | ${referrer.referralFee}%`);
+  }
+
   return getUser(chatId);
 }
 
@@ -134,7 +176,7 @@ function debitBalance(chatId, amount) {
 
 // ==========================
 // AJUSTE FORÇADO DE SALDO (admin)
-// amount positivo = crédito, negativo = débito forçado
+// amount positivo = crédito, negativo = débito forçado (até 0)
 // ==========================
 function forceBalance(chatId, delta) {
   db.prepare(`
@@ -159,6 +201,8 @@ module.exports = {
   setGatewayOverride,
   setBanned,
   setDepositFee,
+  setCommissionRate,
+  setReferralFee,
   setReferredBy,
   creditBalance,
   debitBalance,

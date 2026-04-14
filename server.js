@@ -9,7 +9,7 @@ const { getRoute }                                        = require('./src/route
 const { saveOrder, getOrder, deleteOrder }                = require('./src/store');
 const { getAll, toggle, updateRange, ready: configReady } = require('./src/config');
 const stats                                               = require('./src/stats');
-const { getUser, getUserByReferralCode, upsertUser, setPixKey, setGatewayOverride, setBanned, setDepositFee, setReferredBy, getAllUsers } = require('./src/users');
+const { getUser, getUserByReferralCode, upsertUser, setPixKey, setGatewayOverride, setBanned, setDepositFee, setCommissionRate, setReferralFee, setReferredBy, getAllUsers } = require('./src/users');
 const { createDepositTx, completeDeposit, createWithdrawalTx, completeWithdrawal, failWithdrawal, adminAdjust, getUserTransactions, getAllTransactions } = require('./src/wallet');
 const xpaytech                                            = require('./src/providers/xpaytech');
 
@@ -110,7 +110,8 @@ clientBot.onText(/\/start(?:\s+(.+))?/, (msg, match) => {
     `💳 /saldo — Ver seu saldo atual\n` +
     `💸 /sacar <valor> — Sacar para qualquer chave PIX\n` +
     `📋 /extrato — Histórico de transações\n` +
-    `🤝 /indicar — Ganhe bônus indicando amigos\n` +
+    `🤝 /indicar — Seu link de indicação\n` +
+    `⚙️ /taxa <percent> — Definir taxa dos seus clientes (gerentes)\n` +
     `🆘 /ajuda — Ajuda completa\n` +
     `━━━━━━━━━━━━━━━━━━━━\n\n` +
     `_Para sacar, use /sacar e informe sua chave PIX na hora._`,
@@ -132,18 +133,120 @@ clientBot.onText(/\/indicar/, (msg) => {
   const code    = user.referralCode || '—';
   const botUser = process.env.CLIENT_BOT_USERNAME || '';
   const link    = botUser ? `https://t.me/${botUser}?start=${code}` : null;
+  const isManager = user.commissionRate > 0;
 
-  clientBot.sendMessage(
-    chatId,
-    `🤝 *Sistema de Indicação*\n\n` +
-    `━━━━━━━━━━━━━━━━━━━━\n` +
-    `🎁 *Como funciona:*\n` +
-    `Quando alguém entrar pelo seu link e fizer o *primeiro depósito*, você recebe *R$ 10,00* de bônus automaticamente!\n\n` +
+  let msg =
+    `🤝 *${isManager ? 'Painel do Gerente' : 'Sistema de Indicação'}*\n\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n`;
+
+  if (isManager) {
+    const spread = user.referralFee > 0 ? (user.referralFee - user.commissionRate).toFixed(2) : null;
+    msg +=
+      `📊 *Sua taxa base:* ${user.commissionRate}%\n` +
+      `💸 *Taxa dos seus clientes:* ${user.referralFee > 0 ? user.referralFee + '%' : '⚠️ Não definida'}\n` +
+      (spread ? `💰 *Seu lucro por depósito:* ${spread}%\n` : '') +
+      `\n_Use /taxa <percent> para definir a taxa dos seus clientes._\n\n`;
+  } else {
+    msg += `🎁 *Como funciona:*\nQuando alguém entrar pelo seu link e depositar, você recebe comissão automaticamente!\n\n`;
+  }
+
+  msg +=
     `━━━━━━━━━━━━━━━━━━━━\n` +
     `🔗 *Seu código:* \`${code}\`\n` +
     (link ? `🌐 *Seu link:*\n\`${link}\`\n\n` : '\n') +
-    `💰 *Total ganho:* R$ ${formatBRL(user.referralEarned || 0)}\n` +
-    `━━━━━━━━━━━━━━━━━━━━`,
+    `💰 *Total ganho em comissões:* R$ ${formatBRL(user.referralEarned || 0)}\n` +
+    `━━━━━━━━━━━━━━━━━━━━`;
+
+  clientBot.sendMessage(chatId, msg, { parse_mode: 'Markdown' }).catch(() => {});
+});
+
+// ==========================
+// BOT CLIENTE — /taxa <percent>
+// Somente gerentes (commissionRate > 0) podem usar
+// Define a taxa cobrada dos seus clientes indicados
+// Deve ser >= commissionRate (taxa base do dono)
+// ==========================
+clientBot.onText(/\/taxa(?:\s+(.+))?/, (msg, match) => {
+  const chatId = msg.chat.id;
+  const user   = getUser(chatId);
+
+  if (!user) {
+    return clientBot.sendMessage(chatId, `❌ Use /start primeiro para criar sua conta.`).catch(() => {});
+  }
+
+  // Somente quem tem commissionRate > 0 é gerente
+  if (!user.commissionRate || user.commissionRate <= 0) {
+    return clientBot.sendMessage(
+      chatId,
+      `❌ *Acesso negado.*\n\nEste comando é exclusivo para gerentes.\nEntre em contato com o suporte para solicitar acesso.`,
+      { parse_mode: 'Markdown' }
+    ).catch(() => {});
+  }
+
+  const input = match[1]?.trim().replace(',', '.');
+  const taxa  = parseFloat(input);
+
+  // Sem argumento — mostra configuração atual
+  if (!input || isNaN(taxa)) {
+    const spread = user.referralFee > 0 ? (user.referralFee - user.commissionRate).toFixed(2) : '—';
+    return clientBot.sendMessage(
+      chatId,
+      `⚙️ *Configuração de Gerente*\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `📊 *Taxa base (dono):* ${user.commissionRate}%\n` +
+      `💸 *Sua taxa atual p/ clientes:* ${user.referralFee > 0 ? user.referralFee + '%' : 'Não definida'}\n` +
+      `💰 *Seu spread (lucro):* ${spread !== '—' ? spread + '%' : '—'}\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `Para alterar, use:\n\`/taxa <percent>\`\n\n` +
+      `⚠️ _A taxa deve ser maior que ${user.commissionRate}% (sua taxa base)._`,
+      { parse_mode: 'Markdown' }
+    ).catch(() => {});
+  }
+
+  // Validações
+  if (taxa < 0 || taxa > 100) {
+    return clientBot.sendMessage(
+      chatId, `❌ Taxa inválida. Use um valor entre 0 e 100.`, { parse_mode: 'Markdown' }
+    ).catch(() => {});
+  }
+
+  if (taxa <= user.commissionRate) {
+    return clientBot.sendMessage(
+      chatId,
+      `❌ *Taxa muito baixa!*\n\n` +
+      `Sua taxa base é *${user.commissionRate}%*.\n` +
+      `Você precisa definir uma taxa *acima* de ${user.commissionRate}% para ter lucro.\n\n` +
+      `Ex: \`/taxa ${(user.commissionRate + 5).toFixed(0)}\``,
+      { parse_mode: 'Markdown' }
+    ).catch(() => {});
+  }
+
+  const spread = (taxa - user.commissionRate).toFixed(2);
+  setReferralFee(chatId, taxa);
+  console.log(`⚙️  [Taxa] Gerente ${chatId} definiu taxa de clientes: ${taxa}% (spread: ${spread}%)`);
+
+  clientBot.sendMessage(
+    chatId,
+    `✅ *Taxa atualizada com sucesso!*\n\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n` +
+    `💸 *Taxa dos seus clientes:* ${taxa}%\n` +
+    `📊 *Taxa base (dono):* ${user.commissionRate}%\n` +
+    `💰 *Seu lucro por depósito:* ${spread}%\n` +
+    `━━━━━━━━━━━━━━━━━━━━\n\n` +
+    `_Todos os novos clientes que entrarem pelo seu link pagarão ${taxa}% de taxa._\n` +
+    `_Você receberá ${spread}% de cada depósito deles automaticamente!_ 🚀`,
+    { parse_mode: 'Markdown' }
+  ).catch(() => {});
+
+  // Notificar admin
+  adminBot.sendMessage(
+    ADMIN_CHAT_ID,
+    `⚙️ *GERENTE ATUALIZOU TAXA*\n\n` +
+    `👤 *Gerente:* ${user.firstName || chatId}\n` +
+    `💸 *Nova taxa clientes:* ${taxa}%\n` +
+    `📊 *Taxa base:* ${user.commissionRate}%\n` +
+    `💰 *Spread do gerente:* ${spread}%\n` +
+    `📅 ${nowBR()}`,
     { parse_mode: 'Markdown' }
   ).catch(() => {});
 });
@@ -651,6 +754,30 @@ app.post('/painel/api/users/:chatId/ban', panelAuth, (req, res) => {
   res.json({ success: true, user: updated });
 });
 
+// Definir taxa base do gerente (commissionRate) — % que o dono garante
+app.post('/painel/api/users/:chatId/commission', panelAuth, (req, res) => {
+  const user = getUser(req.params.chatId);
+  if (!user) return res.status(404).json({ success: false, error: 'Usuário não encontrado.' });
+  const rate = parseFloat(req.body.commissionRate);
+  if (isNaN(rate) || rate < 0 || rate > 100) return res.status(400).json({ success: false, error: 'Taxa inválida (0-100).' });
+  const updated = setCommissionRate(req.params.chatId, rate);
+  console.log(`⚙️  [Painel] commissionRate do chatId ${req.params.chatId} → ${rate}%`);
+  // Notificar gerente se ele acabou de virar gerente
+  if (rate > 0 && (!user.commissionRate || user.commissionRate === 0)) {
+    clientBot.sendMessage(
+      req.params.chatId,
+      `🎉 *Você agora é um Gerente!*\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `📊 *Sua taxa base:* ${rate}%\n\n` +
+      `Para começar, defina a taxa dos seus clientes:\n\`/taxa <percent>\`\n\n` +
+      `_A taxa dos clientes deve ser maior que ${rate}% — o spread é o seu lucro._\n\n` +
+      `Use /indicar para obter seu link de indicação.`,
+      { parse_mode: 'Markdown' }
+    ).catch(() => {});
+  }
+  res.json({ success: true, user: updated });
+});
+
 // Definir taxa de depósito por usuário
 app.post('/painel/api/users/:chatId/fee', panelAuth, (req, res) => {
   const user = getUser(req.params.chatId);
@@ -799,11 +926,13 @@ function _notifyPayment(orderId, extra = {}) {
   const { chatId, amountReais, provider } = order;
 
   // Credita saldo e marca depósito como concluído
-  const depositResult  = completeDeposit(orderId);
-  const novoSaldo      = depositResult?.user?.balance ?? null;
-  const feeAmount      = depositResult?.tx?.fee || 0;
-  const netAmount      = depositResult?.tx?.netAmount ?? amountReais;
-  const referralBonus  = depositResult?.referralBonus || null;
+  const depositResult     = completeDeposit(orderId);
+  const novoSaldo         = depositResult?.user?.balance ?? null;
+  const feeAmount         = depositResult?.tx?.fee || 0;
+  const netAmount         = depositResult?.tx?.netAmount ?? amountReais;
+  const commissionResult  = depositResult?.commissionResult || null;
+  // Mantém compatibilidade com código anterior que usava referralBonus
+  const referralBonus     = null;
 
   const valorFormatado = formatBRL(amountReais);
   const dataHora       = extra.paidAt ? formatDate(extra.paidAt) : nowBR();
@@ -831,15 +960,21 @@ function _notifyPayment(orderId, extra = {}) {
   clientBot.sendMessage(chatId, msgCliente, { parse_mode: 'Markdown' })
     .catch(e => console.error('[notify] Erro cliente:', e.message));
 
-  // Notificar referrer sobre bônus
-  if (referralBonus) {
-    const referredUser = depositResult.user;
+  // Notificar gerente sobre comissão recebida
+  if (commissionResult) {
+    const managerUser = getUser(commissionResult.managerId);
+    const novoSaldoGerente = managerUser?.balance ?? 0;
     clientBot.sendMessage(
-      referralBonus.referrerId,
-      `🎁 *Bônus de Indicação Recebido!*\n\n` +
-      `✅ *R$ ${formatBRL(referralBonus.amount)}* creditado na sua conta!\n` +
-      `👤 Seu indicado *${referredUser.firstName || 'um amigo'}* fez o primeiro depósito.\n\n` +
-      `💳 Use /saldo para ver seu saldo atualizado.`,
+      commissionResult.managerId,
+      `💰 *Comissão Recebida!*\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `👤 *Cliente:* ${depositResult.user?.firstName || chatId}\n` +
+      `💵 *Depósito do cliente:* R$ ${valorFormatado}\n` +
+      `📊 *Taxa cobrada:* ${commissionResult.feePct}%\n` +
+      `📊 *Taxa base (dono):* ${commissionResult.commissionRatePct}%\n` +
+      `💰 *Sua comissão (spread):* R$ ${formatBRL(commissionResult.managerCommission)}\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `💳 *Seu saldo atual:* R$ ${formatBRL(novoSaldoGerente)}`,
       { parse_mode: 'Markdown' }
     ).catch(() => {});
   }
@@ -851,11 +986,15 @@ function _notifyPayment(orderId, extra = {}) {
     `🏦 *Gateway:* ${provider}\n` +
     `👤 *Chat ID:* \`${chatId}\`\n`;
 
-  if (feeAmount > 0) adminMsg += `📊 *Taxa cobrada:* R$ ${formatBRL(feeAmount)}\n`;
+  if (feeAmount > 0) adminMsg += `📊 *Taxa total:* R$ ${formatBRL(feeAmount)} (${depositResult?.user?.depositFee || 0}%)\n`;
   if (extra.pagador)  adminMsg += `👤 *Pagador:* ${extra.pagador}\n`;
   if (extra.cpf)      adminMsg += `📄 *CPF:* \`${extra.cpf}\`\n`;
   if (extra.txId)     adminMsg += `🆔 *ID:* \`${extra.txId}\`\n`;
-  if (referralBonus)  adminMsg += `🎁 *Bônus indicação:* R$ ${formatBRL(referralBonus.amount)} → \`${referralBonus.referrerId}\`\n`;
+  if (commissionResult) {
+    adminMsg += `🤝 *Gerente:* ${commissionResult.managerName || commissionResult.managerId}` +
+                ` — comissão R$ ${formatBRL(commissionResult.managerCommission)}` +
+                ` | dono R$ ${formatBRL(commissionResult.ownerCut)}\n`;
+  }
   adminMsg += `📅 *Data:* ${dataHora}\n━━━━━━━━━━━━━━━━━━━━`;
 
   adminBot.sendMessage(ADMIN_CHAT_ID, adminMsg, { parse_mode: 'Markdown' })
