@@ -1614,10 +1614,16 @@ app.post('/painel/api/users/:chatId/apply-taxa', panelAuth, (req, res) => {
 
 // Transações com filtros e totais
 app.get('/painel/api/transactions', panelAuth, (req, res) => {
-  const { type, status, gateway, period, limit = 100 } = req.query;
+  const { type, status, gateway, period, chatId, limit = 100 } = req.query;
 
   let whereConditions = [];
   let params = [];
+
+  // Filtro por usuário específico
+  if (chatId) {
+    whereConditions.push('chatId = ?');
+    params.push(chatId);
+  }
 
   // Filtro por tipo
   if (type) {
