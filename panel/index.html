@@ -744,18 +744,54 @@ document.getElementById('pwd-input').addEventListener('keydown', e => { if(e.key
 
 async function doLogin() {
   const pwd = document.getElementById('pwd-input').value.trim();
-  if(!pwd) return;
+  if(!pwd) {
+    document.getElementById('login-err').textContent = '❌ Digite a senha de acesso.';
+    document.getElementById('login-err').style.display='block';
+    return;
+  }
+
   try {
-    const r = await api('GET', '/painel/api/providers', null, pwd);
-    if(r === null) { document.getElementById('login-err').style.display='block'; return; }
+    // Testar autenticação com a API
+    const response = await fetch('/painel/api/providers', {
+      method: 'GET',
+      headers: {
+        'x-panel-key': pwd,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (response.status === 401) {
+      document.getElementById('login-err').textContent = '❌ Senha incorreta. Tente novamente.';
+      document.getElementById('login-err').style.display='block';
+      return;
+    }
+
+    if (!response.ok) {
+      document.getElementById('login-err').textContent = '❌ Erro no servidor. Tente novamente.';
+      document.getElementById('login-err').style.display='block';
+      return;
+    }
+
+    const data = await response.json();
+
+    // Login bem-sucedido
     KEY = pwd;
     localStorage.setItem('abp_k', pwd);
     document.getElementById('login-err').style.display='none';
     document.getElementById('login-screen').style.display='none';
     document.getElementById('panel-screen').style.display='block';
+
+    // Carregar dados iniciais
     loadAll();
     setInterval(loadDashboard, 30000);
-  } catch(e) { toast('❌ Erro ao conectar.', 'error'); }
+
+    toast('✅ Login realizado com sucesso!', 'success');
+
+  } catch(e) {
+    console.error('Erro de login:', e);
+    document.getElementById('login-err').textContent = '❌ Erro de conexão. Verifique se o servidor está online.';
+    document.getElementById('login-err').style.display='block';
+  }
 }
 
 function logout() {
@@ -767,7 +803,11 @@ function logout() {
 
 window.addEventListener('DOMContentLoaded', () => {
   const k = localStorage.getItem('abp_k');
-  if(k) { document.getElementById('pwd-input').value=k; doLogin(); }
+  if(k) {
+    document.getElementById('pwd-input').value = k;
+    // Tentar login automático apenas se a senha estiver salva
+    setTimeout(doLogin, 100);
+  }
 });
 
 // ══ NAVIGATION ══
@@ -785,12 +825,44 @@ function goTo(page, btn) {
 
 // ══ API HELPER ══
 async function api(method, path, body=null, overrideKey=null) {
-  const k = overrideKey || KEY;
-  const opts = { method, headers: { 'x-panel-key': k, 'Content-Type': 'application/json' } };
-  if(body) opts.body = JSON.stringify(body);
-  const r = await fetch(path, opts);
-  if(r.status === 401) return null;
-  return r.json();
+  try {
+    const k = overrideKey || KEY;
+    const opts = {
+      method,
+      headers: {
+        'x-panel-key': k,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    };
+
+    if(body) opts.body = JSON.stringify(body);
+
+    console.log(`API Call: ${method} ${path}`, { hasKey: !!k, bodySize: body ? JSON.stringify(body).length : 0 });
+
+    const r = await fetch(path, opts);
+
+    console.log(`API Response: ${r.status} ${r.statusText}`);
+
+    if(r.status === 401) {
+      console.warn('API: Unauthorized - key may be invalid');
+      return null;
+    }
+
+    if(!r.ok) {
+      console.error(`API Error: ${r.status} ${r.statusText}`);
+      throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+    }
+
+    const result = await r.json();
+    console.log(`API Success:`, result);
+
+    return result;
+
+  } catch (error) {
+    console.error('API Call Error:', error);
+    throw error;
+  }
 }
 
 function loadAll() { loadDashboard(); loadGateways(); }

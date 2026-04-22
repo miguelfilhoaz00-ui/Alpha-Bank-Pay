@@ -1227,7 +1227,32 @@ app.use(express.json());
 
 function panelAuth(req, res, next) {
   const key = req.headers['x-panel-key'];
-  if (!PANEL_PASSWORD || key !== PANEL_PASSWORD) return res.status(401).json({ error: 'Não autorizado.' });
+
+  console.log('🔐 [Panel Auth]', {
+    hasKey: !!key,
+    keyLength: key ? key.length : 0,
+    hasEnvPassword: !!PANEL_PASSWORD,
+    envPasswordLength: PANEL_PASSWORD ? PANEL_PASSWORD.length : 0,
+    match: key === PANEL_PASSWORD,
+    path: req.path
+  });
+
+  if (!PANEL_PASSWORD) {
+    console.error('❌ [Panel Auth] PANEL_PASSWORD não configurado no .env!');
+    return res.status(500).json({ error: 'Configuração de senha do painel não encontrada.' });
+  }
+
+  if (!key) {
+    console.warn('⚠️ [Panel Auth] Chave não fornecida no header x-panel-key');
+    return res.status(401).json({ error: 'Chave de autenticação necessária.' });
+  }
+
+  if (key !== PANEL_PASSWORD) {
+    console.warn('🚫 [Panel Auth] Chave incorreta fornecida');
+    return res.status(401).json({ error: 'Não autorizado.' });
+  }
+
+  console.log('✅ [Panel Auth] Autenticação bem-sucedida');
   next();
 }
 
