@@ -89,4 +89,265 @@ async function createPix(chatId, amountReais) {
   };
 }
 
-module.exports = { createPix };
+// ==========================
+// SAQUES PIX — PODPAY
+// ==========================
+const API_KEY = process.env.PODPAY_API_KEY;
+const WEBHOOK_URL = process.env.PODPAY_WEBHOOK_URL || `${process.env.APP_URL}/webhook/podpay`;
+
+/**
+ * Criar saque PIX na PodPay
+ * @param {string} pixKey - Chave PIX (CPF, telefone, email, etc.)
+ * @param {number} amount - Valor em REAIS (será convertido para centavos)
+ * @param {string} pixKeyType - Tipo da chave PIX
+ * @param {string} orderId - ID único da transação
+ * @param {string} description - Descrição do saque
+ */
+async function createWithdrawal(pixKey, amount, pixKeyType = 'evp', orderId, description = 'Saque PIX') {
+  try {
+    console.log('🏦 [PodPay] Criando saque:', {
+      pixKey: pixKey.replace(/(\d{3})\d{6}(\d{2})/, '$1***$2'), // Mascarar CPF
+      amount,
+      orderId,
+      pixKeyType
+    });
+
+    // Validar parâmetros obrigatórios
+    if (!API_KEY) {
+      throw new Error('PODPAY_API_KEY não configurada');
+    }
+
+    if (!pixKey || !amount || amount < 1) {
+      throw new Error('Parâmetros inválidos: pixKey e amount são obrigatórios');
+    }
+
+    // Converter valor para centavos (PodPay usa centavos)
+    const amountInCents = Math.round(amount * 100);
+
+    // Detectar tipo de chave PIX automaticamente se não fornecido
+    const detectedPixKeyType = pixKeyType || detectPixKeyType(pixKey);
+
+    // Payload da requisição
+    const payload = {
+      method: 'fiat',                    // Saque PIX
+      amount: amountInCents,             // Valor em centavos
+      pixKey: pixKey.trim(),             // Chave PIX
+      pixKeyType: detectedPixKeyType,    // Tipo da chave
+      netPayout: false                   // Taxa incluída no valor
+    };
+
+    console.log('📡 [PodPay] Payload saque:', { ...payload, pixKey: '***' });
+
+    // Fazer requisição para PodPay
+    const response = await axios.post(`${BASE_URL}/v1/withdrawals`, payload, {
+      headers: {
+        'x-api-key': API_KEY,
+        'Content-Type': 'application/json',
+        'X-Idempotency-Key': orderId // Usar orderId como chave de idempotência
+      },
+      timeout: 30000
+    });
+
+    console.log('✅ [PodPay] Resposta saque:', response.data);
+
+    // Processar resposta
+    if (response.data.success && response.data.data) {
+      const withdrawal = response.data.data;
+
+      return {
+        success: true,
+        data: {
+          id: withdrawal.id,
+          status: mapStatus(withdrawal.status),
+          amount: withdrawal.amount / 100, // Converter de volta para reais
+          fee: withdrawal.fee ? withdrawal.fee / 100 : 0,
+          netAmount: withdrawal.netAmount ? withdrawal.netAmount / 100 : (withdrawal.amount / 100),
+          pixKey,
+          pixKeyType: detectedPixKeyType,
+          orderId,
+          provider: 'podpay',
+          createdAt: withdrawal.createdAt || new Date().toISOString(),
+          externalId: withdrawal.id,
+          webhookUrl: WEBHOOK_URL
+        }
+      };
+    } else {
+      throw new Error(response.data.error?.message || 'Resposta inválida da PodPay');
+    }
+
+  } catch (error) {
+    console.error('❌ [PodPay] Erro ao criar saque:', error.message);
+
+    let errorMessage = 'Erro interno da PodPay';
+
+    if (error.response) {
+      const status = error.response.status;
+      const data = error.response.data;
+
+      console.error('❌ [PodPay] Erro HTTP:', status, data);
+
+      if (status === 401) {
+        errorMessage = 'Erro de autenticação PodPay - verifique API_KEY';
+      } else if (status === 400) {
+        errorMessage = data?.error?.message || 'Dados inválidos para saque';
+      } else if (status === 429) {
+        errorMessage = 'Rate limit excedido - tente novamente em alguns segundos';
+      } else if (status >= 500) {
+        errorMessage = 'Erro temporário da PodPay - tente novamente';
+      } else {
+        errorMessage = data?.error?.message || `Erro PodPay (${status})`;
+      }
+    } else if (error.code === 'TIMEOUT' || error.code === 'ECONNABORTED') {
+      errorMessage = 'Timeout na comunicação com PodPay';
+    } else if (error.code === 'ECONNREFUSED') {
+      errorMessage = 'PodPay indisponível - tente novamente';
+    }
+
+    return {
+      success: false,
+      error: errorMessage,
+      details: error.response?.data || error.message
+    };
+  }
+}
+
+/**
+ * Detectar automaticamente o tipo de chave PIX
+ */
+function detectPixKeyType(pixKey) {
+  if (!pixKey) return 'evp';
+
+  const key = pixKey.trim();
+
+  // CPF: 11 dígitos numéricos
+  if (/^\d{11}$/.test(key)) return 'cpf';
+
+  // CNPJ: 14 dígitos numéricos
+  if (/^\d{14}$/.test(key)) return 'cnpj';
+
+  // Telefone: +55 + DDD + número
+  if (/^(\+55)?[1-9]{2}9?\d{8}$/.test(key.replace(/\D/g, ''))) return 'phone';
+
+  // Email: contém @ e domínio
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(key)) return 'email';
+
+  // Chave aleatória: UUID ou string específica
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key)) {
+    return 'evp';
+  }
+
+  // Copy-paste: muito longo (QR Code)
+  if (key.length > 50) return 'copypaste';
+
+  // Default: chave aleatória
+  return 'evp';
+}
+
+/**
+ * Mapear status da PodPay para nosso sistema
+ */
+function mapStatus(podpayStatus) {
+  const statusMap = {
+    'pending': 'pending',
+    'pending_approval': 'pending',
+    'processing': 'pending',
+    'completed': 'completed',
+    'paid': 'completed',
+    'failed': 'failed',
+    'cancelled': 'failed',
+    'canceled': 'failed'
+  };
+
+  return statusMap[podpayStatus] || 'pending';
+}
+
+/**
+ * Processar webhook da PodPay
+ */
+function processWebhook(payload) {
+  try {
+    console.log('🔔 [PodPay] Webhook recebido:', payload.event);
+
+    if (!payload.event || !payload.data) {
+      throw new Error('Webhook inválido - dados incompletos');
+    }
+
+    const { event, data } = payload;
+    const withdrawalData = data;
+
+    // Processar apenas eventos de saque
+    if (!event.startsWith('withdrawal.')) {
+      console.log('ℹ️ [PodPay] Evento ignorado:', event);
+      return { success: true, ignored: true };
+    }
+
+    return {
+      success: true,
+      event,
+      data: {
+        id: withdrawalData.id,
+        orderId: null, // PodPay não retorna nosso orderId no webhook
+        status: mapStatus(withdrawalData.status),
+        amount: withdrawalData.amount ? withdrawalData.amount / 100 : 0,
+        provider: 'podpay',
+        paidAt: withdrawalData.paidAt,
+        createdAt: withdrawalData.createdAt,
+        companyId: withdrawalData.companyId
+      }
+    };
+  } catch (error) {
+    console.error('❌ [PodPay] Erro ao processar webhook:', error.message);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Validar se uma chave PIX é válida
+ */
+function validatePixKey(pixKey, pixKeyType) {
+  if (!pixKey || typeof pixKey !== 'string') {
+    return { valid: false, error: 'Chave PIX é obrigatória' };
+  }
+
+  const key = pixKey.trim();
+
+  switch (pixKeyType) {
+    case 'cpf':
+      if (!/^\d{11}$/.test(key)) {
+        return { valid: false, error: 'CPF deve ter 11 dígitos numéricos' };
+      }
+      break;
+
+    case 'cnpj':
+      if (!/^\d{14}$/.test(key)) {
+        return { valid: false, error: 'CNPJ deve ter 14 dígitos numéricos' };
+      }
+      break;
+
+    case 'email':
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(key)) {
+        return { valid: false, error: 'Email inválido' };
+      }
+      break;
+
+    case 'phone':
+      const cleanPhone = key.replace(/\D/g, '');
+      if (!/^(\+55)?[1-9]{2}9?\d{8}$/.test(cleanPhone)) {
+        return { valid: false, error: 'Telefone inválido' };
+      }
+      break;
+  }
+
+  return { valid: true };
+}
+
+module.exports = {
+  createPix,           // Função existente para depósitos
+  createWithdrawal,    // Nova função para saques
+  processWebhook,      // Processar webhooks de saque
+  validatePixKey,      // Validar chaves PIX
+  detectPixKeyType     // Detectar tipo automaticamente
+};

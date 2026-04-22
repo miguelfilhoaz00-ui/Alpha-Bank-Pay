@@ -1047,6 +1047,25 @@ clientBot.on('callback_query', async (query) => {
         case 'XPayTech':
           result = await xpaytech.withdraw(chatId, pending.amount, pixKey, pixKeyType, document);
           break;
+        case 'PodPay':
+          const podpay = require('./src/providers/podpay');
+          const podpayResult = await podpay.createWithdrawal(
+            pixKey,
+            pending.amount,
+            pixKeyType,
+            `podpay_out_${Date.now()}_${chatId}`,
+            `Saque Alpha Bank Pay - ${user.firstName || 'Usuário'}`
+          );
+          if (podpayResult.success) {
+            result = {
+              orderId: podpayResult.data.externalId,
+              success: true,
+              data: podpayResult.data
+            };
+          } else {
+            throw new Error(podpayResult.error || 'Erro na PodPay');
+          }
+          break;
         case 'PagNet':
           // TODO: Implementar PagNet withdraw quando disponível
           result = await xpaytech.withdraw(chatId, pending.amount, pixKey, pixKeyType, document);
@@ -2177,10 +2196,31 @@ app.post('/webhook/podpay', (req, res) => {
   console.log('📥 [PodPay] Webhook:', JSON.stringify(req.body));
   try {
     const { event, data } = req.body;
+
+    // Processar depósitos (já existia)
     if (event === 'transaction.paid' && data?.status === 'PAID') {
       _notifyPayment(`podpay_${data.id}`, { txId: data.id, paidAt: data.paidAt });
     }
-  } catch (e) { console.error('[PodPay] Erro:', e.message); }
+
+    // Processar saques (NOVO!)
+    if (event && event.startsWith('withdrawal.')) {
+      console.log(`🔔 [PodPay] Evento de saque: ${event}`, data.id);
+
+      const externalId = data.id;
+      const status = data.status;
+
+      if (event === 'withdrawal.completed' && (status === 'COMPLETED' || status === 'completed')) {
+        // Saque concluído com sucesso
+        _notifyWithdrawalSuccess(externalId, data);
+      } else if (event === 'withdrawal.failed' || event === 'withdrawal.canceled') {
+        // Saque falhou ou foi cancelado
+        _notifyWithdrawalFailure(externalId, data);
+      }
+    }
+
+  } catch (e) {
+    console.error('❌ [PodPay] Erro no webhook:', e.message);
+  }
   res.sendStatus(200);
 });
 
@@ -2216,6 +2256,114 @@ app.post('/webhook/xpaytech', (req, res) => {
 // ══════════════════════════════════
 // HELPERS DE NOTIFICAÇÃO
 // ══════════════════════════════════
+
+// ==========================
+// NOTIFICAÇÕES DE SAQUE
+// ==========================
+function _notifyWithdrawalSuccess(externalId, data) {
+  try {
+    console.log(`✅ [PodPay] Saque concluído: ${externalId}`);
+
+    // Buscar transação relacionada no banco
+    const tx = db.prepare(`
+      SELECT * FROM transactions
+      WHERE (orderId LIKE ? OR metadata LIKE ?)
+        AND type = 'withdrawal'
+        AND status = 'pending'
+      ORDER BY id DESC LIMIT 1
+    `).get(`%${externalId}%`, `%${externalId}%`);
+
+    if (!tx) {
+      console.warn(`⚠️ [PodPay] Transação não encontrada para: ${externalId}`);
+      return;
+    }
+
+    // Atualizar status da transação
+    completeWithdrawal(tx.id, externalId);
+
+    // Notificar cliente
+    const user = getUser(tx.chatId);
+    const amount = data.netTransactionAmount ? data.netTransactionAmount / 100 : tx.amount;
+
+    clientBot.sendMessage(tx.chatId,
+      `✅ *SAQUE CONCLUÍDO!* 💰\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `💸 *Valor:* R$ ${amount.toFixed(2)}\n` +
+      `🔑 *Destino:* PIX\n` +
+      `⏰ *Processado:* ${data.paidAt ? formatDate(data.paidAt) : nowBR()}\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `🎉 *O PIX foi enviado com sucesso!*`,
+      { parse_mode: 'Markdown' }
+    ).catch(() => {});
+
+    // Notificar admin
+    adminBot.sendMessage(ADMIN_CHAT_ID,
+      `✅ *SAQUE PODPAY CONCLUÍDO*\n` +
+      `👤 *Usuário:* ${user?.firstName || tx.chatId}\n` +
+      `💰 *Valor:* R$ ${amount.toFixed(2)}\n` +
+      `🆔 *ID:* ${externalId}\n` +
+      `📅 ${nowBR()}`,
+      { parse_mode: 'Markdown' }
+    ).catch(() => {});
+
+  } catch (error) {
+    console.error('❌ [PodPay] Erro ao notificar sucesso:', error.message);
+  }
+}
+
+function _notifyWithdrawalFailure(externalId, data) {
+  try {
+    console.log(`❌ [PodPay] Saque falhou: ${externalId}`);
+
+    // Buscar transação relacionada no banco
+    const tx = db.prepare(`
+      SELECT * FROM transactions
+      WHERE (orderId LIKE ? OR metadata LIKE ?)
+        AND type = 'withdrawal'
+        AND status = 'pending'
+      ORDER BY id DESC LIMIT 1
+    `).get(`%${externalId}%`, `%${externalId}%`);
+
+    if (!tx) {
+      console.warn(`⚠️ [PodPay] Transação não encontrada para: ${externalId}`);
+      return;
+    }
+
+    // Marcar como falhada
+    failWithdrawal(tx.id, 'Falha na PodPay');
+
+    // Reembolsar o usuário
+    const user = creditBalance(tx.chatId, tx.amount);
+    console.log(`💰 [PodPay] Reembolso | chatId: ${tx.chatId} | R$${tx.amount.toFixed(2)} | Novo saldo: R$${user.balance.toFixed(2)}`);
+
+    // Notificar cliente
+    clientBot.sendMessage(tx.chatId,
+      `❌ *SAQUE NÃO PROCESSADO* 💸\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `💰 *Valor:* R$ ${tx.amount.toFixed(2)}\n` +
+      `🔄 *Status:* Reembolsado\n` +
+      `💳 *Novo saldo:* R$ ${user.balance.toFixed(2)}\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `_O valor foi devolvido à sua conta._\n` +
+      `_Tente novamente ou entre em contato conosco._`,
+      { parse_mode: 'Markdown' }
+    ).catch(() => {});
+
+    // Notificar admin
+    adminBot.sendMessage(ADMIN_CHAT_ID,
+      `❌ *SAQUE PODPAY FALHOU*\n` +
+      `👤 *Usuário:* ${user?.firstName || tx.chatId}\n` +
+      `💰 *Valor:* R$ ${tx.amount.toFixed(2)}\n` +
+      `🆔 *ID:* ${externalId}\n` +
+      `🔄 *Reembolsado:* Sim\n` +
+      `📅 ${nowBR()}`,
+      { parse_mode: 'Markdown' }
+    ).catch(() => {});
+
+  } catch (error) {
+    console.error('❌ [PodPay] Erro ao notificar falha:', error.message);
+  }
+}
 
 function _notifyPayment(orderId, extra = {}) {
   const order = getOrder(orderId);
