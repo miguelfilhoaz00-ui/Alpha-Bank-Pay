@@ -1987,67 +1987,6 @@ function showUserSettings(user, settings) {
   ]);
 }
 
-      <div class="settings-grid">
-        <div class="setting-group">
-          <label class="setting-label">Limite de Aprovação Automática</label>
-          <input type="number" class="setting-input" id="auto-limit" value="${settings.auto_approve_limit}" min="0" step="10">
-          <small style="color:var(--muted);">Saques até este valor são aprovados automaticamente</small>
-        </div>
-
-        <div class="setting-group">
-          <label class="setting-label">Limite Diário</label>
-          <input type="number" class="setting-input" id="daily-limit" value="${settings.daily_limit}" min="0" step="100">
-        </div>
-
-        <div class="setting-group">
-          <label class="setting-label">Limite Mensal</label>
-          <input type="number" class="setting-input" id="monthly-limit" value="${settings.monthly_limit}" min="0" step="1000">
-        </div>
-
-        <div class="setting-group">
-          <label class="setting-label">Valor para Alerta</label>
-          <input type="number" class="setting-input" id="alert-value" value="${settings.alert_high_value}" min="0" step="100">
-        </div>
-      </div>
-
-      <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px;">
-        <label class="setting-checkbox">
-          <input type="checkbox" id="require-approval" ${settings.requires_manual_approval ? 'checked' : ''}>
-          Todas as transações precisam de aprovação
-        </label>
-
-        <label class="setting-checkbox">
-          <input type="checkbox" id="withdrawals-blocked" ${settings.withdrawals_blocked ? 'checked' : ''}>
-          Saques bloqueados
-        </label>
-
-        <label class="setting-checkbox">
-          <input type="checkbox" id="alert-new-pix" ${settings.alert_new_pix_key ? 'checked' : ''}>
-          Alertar sobre chaves PIX novas
-        </label>
-
-        <label class="setting-checkbox">
-          <input type="checkbox" id="alert-multiple" ${settings.alert_multiple_withdrawals ? 'checked' : ''}>
-          Alertar sobre múltiplos saques
-        </label>
-
-        <label class="setting-checkbox">
-          <input type="checkbox" id="alert-night" ${settings.alert_night_hours ? 'checked' : ''}>
-          Alertar sobre saques noturnos
-        </label>
-      </div>
-
-      <div style="display:flex;gap:12px;">
-        <button class="btn btn-primary" onclick="saveUserSettings('${user.chatId}')">💾 Salvar Configurações</button>
-        <button class="btn btn-secondary" onclick="viewUserHistory('${user.chatId}')">📋 Ver Histórico</button>
-        <button class="btn" onclick="sendUserMessage('${user.chatId}')">💬 Enviar Mensagem</button>
-      </div>
-    </div>
-  `;
-
-  container.style.display = 'block';
-}
-
 async function saveUserSettingsAdvanced(chatId) {
   try {
     // Coletar todas as configurações
