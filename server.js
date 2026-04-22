@@ -1867,32 +1867,49 @@ app.post('/painel/api/transactions/:id/reject', panelAuth, (req, res) => {
 
 // Listar usuários para controle (paginado)
 app.get('/painel/api/users/control', panelAuth, (req, res) => {
-  const { search, limit = 50, offset = 0 } = req.query;
+  try {
+    const { search, limit = 50, offset = 0 } = req.query;
 
-  let whereClause = '';
-  let params = [];
+    let whereClause = '';
+    let queryParams = [];
 
-  if (search) {
-    whereClause = 'WHERE chatId LIKE ? OR firstName LIKE ? OR username LIKE ?';
-    params = [`%${search}%`, `%${search}%`, `%${search}%`];
+    if (search) {
+      whereClause = 'WHERE chatId LIKE ? OR firstName LIKE ? OR username LIKE ?';
+      queryParams = [`%${search}%`, `%${search}%`, `%${search}%`];
+    }
+
+    // Query para usuarios
+    const usersQuery = `
+      SELECT chatId, firstName, lastName, username, balance, createdAt, banned,
+             (SELECT COUNT(*) FROM transactions WHERE transactions.chatId = users.chatId) as transactionCount
+      FROM users
+      ${whereClause}
+      ORDER BY createdAt DESC
+      LIMIT ? OFFSET ?
+    `;
+
+    const users = db.prepare(usersQuery).all(...queryParams, parseInt(limit), parseInt(offset));
+
+    // Query para contagem total
+    const countQuery = `SELECT COUNT(*) as count FROM users ${whereClause}`;
+    const totalCount = db.prepare(countQuery).get(...queryParams).count;
+
+    console.log(`📊 [Painel] Usuários carregados: ${users.length}/${totalCount}`);
+
+    res.json({
+      users,
+      totalCount,
+      hasMore: parseInt(offset) + parseInt(limit) < totalCount
+    });
+
+  } catch (error) {
+    console.error('❌ [Painel] Erro ao carregar usuários:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao carregar usuários',
+      details: error.message
+    });
   }
-
-  const users = db.prepare(`
-    SELECT chatId, firstName, lastName, username, balance, createdAt, banned,
-           (SELECT COUNT(*) FROM transactions WHERE transactions.chatId = users.chatId) as transactionCount
-    FROM users
-    ${whereClause}
-    ORDER BY createdAt DESC
-    LIMIT ? OFFSET ?
-  `).all(...params, parseInt(limit), parseInt(offset));
-
-  const totalCount = db.prepare(`SELECT COUNT(*) as count FROM users ${whereClause}`).get(...params).count;
-
-  res.json({
-    users,
-    totalCount,
-    hasMore: parseInt(offset) + parseInt(limit) < totalCount
-  });
 });
 
 // Configurações de usuário
