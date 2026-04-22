@@ -128,6 +128,7 @@ const migrations = [
   `ALTER TABLE users ADD COLUMN referralFee     REAL    DEFAULT 0`,
   `ALTER TABLE users ADD COLUMN last_activity   TEXT    DEFAULT CURRENT_TIMESTAMP`,
   `ALTER TABLE users ADD COLUMN preferred_gateway TEXT  DEFAULT 'XPayTech'`,
+  `ALTER TABLE users ADD COLUMN preferred_withdrawal_gateway TEXT DEFAULT NULL`,
   `ALTER TABLE transactions ADD COLUMN fee        REAL DEFAULT 0`,
   `ALTER TABLE transactions ADD COLUMN fromChatId TEXT DEFAULT NULL`,
   `ALTER TABLE transactions ADD COLUMN metadata    TEXT DEFAULT NULL`,

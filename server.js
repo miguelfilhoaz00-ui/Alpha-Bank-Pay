@@ -1291,8 +1291,19 @@ app.get('/painel/api/users', panelAuth, (req, res) => {
 app.post('/painel/api/users/:chatId/gateway', panelAuth, (req, res) => {
   const user = getUser(req.params.chatId);
   if (!user) return res.status(404).json({ success: false, error: 'Usuário não encontrado.' });
-  const updated = setGatewayOverride(req.params.chatId, req.body.gatewayOverride || null);
-  console.log(`🎛️  [Painel] Gateway do chatId ${req.params.chatId} → ${req.body.gatewayOverride || 'auto'}`);
+
+  const { gatewayOverride, withdrawalGateway } = req.body;
+
+  // Atualizar gateway de depósito
+  const updated = setGatewayOverride(req.params.chatId, gatewayOverride || null);
+
+  // Atualizar gateway de saque
+  if (withdrawalGateway !== undefined) {
+    db.prepare('UPDATE users SET preferred_withdrawal_gateway = ? WHERE chatId = ?')
+      .run(withdrawalGateway || null, req.params.chatId);
+  }
+
+  console.log(`🎛️  [Painel] Gateways do chatId ${req.params.chatId} → Depósito: ${gatewayOverride || 'auto'} | Saque: ${withdrawalGateway || 'auto'}`);
   res.json({ success: true, user: updated });
 });
 
@@ -2005,13 +2016,16 @@ app.get('/painel/api/user/:chatId/gateway', panelAuth, (req, res) => {
   const { chatId } = req.params;
 
   try {
-    const user = db.prepare('SELECT preferred_gateway FROM users WHERE chatId = ?').get(chatId);
+    const user = db.prepare('SELECT preferred_gateway, preferred_withdrawal_gateway FROM users WHERE chatId = ?').get(chatId);
 
     if (!user) {
       return res.status(404).json({ error: 'Usuário não encontrado' });
     }
 
-    res.json({ gateway: user.preferred_gateway || 'XPayTech' });
+    res.json({
+      gateway: user.preferred_gateway || 'XPayTech',
+      withdrawalGateway: user.preferred_withdrawal_gateway || null
+    });
   } catch (error) {
     console.error('Erro ao buscar gateway:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });

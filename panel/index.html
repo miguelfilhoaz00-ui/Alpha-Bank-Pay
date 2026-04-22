@@ -1925,17 +1925,32 @@ function showUserSettingsAdvanced(user, settings, gateway, gateways) {
       <p style="margin:0 0 20px 0;color:var(--muted);">Saldo atual: R$ ${user.balance.toFixed(2)} | Transações: ${user.transactionCount || 0}</p>
 
       <div class="settings-grid">
-        <!-- Gateway PIX -->
+        <!-- Gateway PIX para Depósitos -->
         <div class="setting-group">
-          <label class="setting-label">🏦 Gateway PIX Preferido</label>
-          <select class="setting-input" id="user-gateway">
+          <label class="setting-label">💰 Gateway PIX (Depósitos)</label>
+          <select class="setting-input" id="user-gateway-deposit">
+            <option value="">🔀 Automático</option>
             ${(gateways || []).map(gw => `
               <option value="${gw.id}" ${gateway?.gateway === gw.id ? 'selected' : ''}>
                 ${gw.name} ${gw.active ? '✅' : '⚠️'}
               </option>
             `).join('')}
           </select>
-          <small style="color:var(--muted);">Gateway usado para saques deste usuário</small>
+          <small style="color:var(--muted);">Gateway usado para receber depósitos</small>
+        </div>
+
+        <!-- Gateway de Saque -->
+        <div class="setting-group">
+          <label class="setting-label">🏦 Gateway de Saque</label>
+          <select class="setting-input" id="user-gateway-withdrawal">
+            <option value="">🔀 Automático</option>
+            ${(gateways || []).map(gw => `
+              <option value="${gw.id}" ${gateway?.withdrawalGateway === gw.id ? 'selected' : ''}>
+                ${gw.name} ${gw.active ? '✅' : '⚠️'}
+              </option>
+            `).join('')}
+          </select>
+          <small style="color:var(--muted);font-weight:600;color:#fbbf24;">⚠️ Gateway específico para saques PIX deste usuário</small>
         </div>
 
         <!-- Limite de Aprovação Automática -->
@@ -2158,13 +2173,17 @@ async function saveUserSettingsAdvanced(chatId) {
       alert_night_hours: document.getElementById('alert-night').checked
     };
 
-    const gateway = document.getElementById('user-gateway').value;
+    const gatewayDeposit = document.getElementById('user-gateway-deposit').value;
+    const gatewayWithdrawal = document.getElementById('user-gateway-withdrawal').value;
     const banned = document.getElementById('user-banned').checked;
 
     // Salvar configurações em paralelo
     const promises = [
       api('POST', `/painel/api/user/${chatId}/settings`, settings),
-      api('POST', `/painel/api/user/${chatId}/set-gateway`, { gateway })
+      api('POST', `/painel/api/users/${chatId}/gateway`, {
+        gatewayOverride: gatewayDeposit || null,
+        withdrawalGateway: gatewayWithdrawal || null
+      })
     ];
 
     // Se status de ban mudou, atualizar
