@@ -1024,8 +1024,11 @@ clientBot.on('callback_query', async (query) => {
       return;
     }
 
+    // Obter gateway preferido do usuário
+    const userGateway = user.preferred_gateway || 'XPayTech';
+
     // Aprovação automática - processar imediatamente
-    const withdrawal = createWithdrawalTx(chatId, pending.amount, 'XPayTech');
+    const withdrawal = createWithdrawalTx(chatId, pending.amount, userGateway);
     if (!withdrawal) {
       return clientBot.sendMessage(
         chatId, `❌ *Saldo insuficiente.* Use /saldo para verificar.`, { parse_mode: 'Markdown' }
@@ -1036,7 +1039,26 @@ clientBot.on('callback_query', async (query) => {
       const pixKey     = pending.pixKey;
       const pixKeyType = pending.pixKeyType;
       const document   = getDocumentForWithdrawal(user, pixKey, pixKeyType);
-      const result = await xpaytech.withdraw(chatId, pending.amount, pixKey, pixKeyType, document);
+
+      let result;
+
+      // Usar gateway específico do usuário
+      switch (userGateway) {
+        case 'XPayTech':
+          result = await xpaytech.withdraw(chatId, pending.amount, pixKey, pixKeyType, document);
+          break;
+        case 'PagNet':
+          // TODO: Implementar PagNet withdraw quando disponível
+          result = await xpaytech.withdraw(chatId, pending.amount, pixKey, pixKeyType, document);
+          break;
+        case 'FluxoPay':
+          // TODO: Implementar FluxoPay withdraw quando disponível
+          result = await xpaytech.withdraw(chatId, pending.amount, pixKey, pixKeyType, document);
+          break;
+        default:
+          result = await xpaytech.withdraw(chatId, pending.amount, pixKey, pixKeyType, document);
+      }
+
       completeWithdrawal(withdrawal.txId, result.orderId);
 
       clientBot.editMessageText(
@@ -1565,9 +1587,82 @@ app.post('/painel/api/users/:chatId/apply-taxa', panelAuth, (req, res) => {
   res.json({ success: true, count: affiliates.length, fee: manager.referralFee });
 });
 
-// Transações
+// Transações com filtros e totais
 app.get('/painel/api/transactions', panelAuth, (req, res) => {
-  res.json(getAllTransactions(100));
+  const { type, status, gateway, period, limit = 100 } = req.query;
+
+  let whereConditions = [];
+  let params = [];
+
+  // Filtro por tipo
+  if (type) {
+    whereConditions.push('type = ?');
+    params.push(type);
+  }
+
+  // Filtro por status
+  if (status) {
+    whereConditions.push('status = ?');
+    params.push(status);
+  }
+
+  // Filtro por gateway
+  if (gateway) {
+    whereConditions.push('gateway = ?');
+    params.push(gateway);
+  }
+
+  // Filtro por período
+  if (period) {
+    switch (period) {
+      case 'today':
+        whereConditions.push("date(createdAt) = date('now')");
+        break;
+      case 'week':
+        whereConditions.push("createdAt >= datetime('now', '-7 days')");
+        break;
+      case 'month':
+        whereConditions.push("createdAt >= datetime('now', '-30 days')");
+        break;
+    }
+  }
+
+  const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';
+
+  // Buscar transações
+  const transactions = db.prepare(`
+    SELECT t.*, u.firstName, u.username
+    FROM transactions t
+    LEFT JOIN users u ON t.chatId = u.chatId
+    ${whereClause}
+    ORDER BY t.createdAt DESC
+    LIMIT ?
+  `).all(...params, parseInt(limit));
+
+  // Calcular totais por categoria
+  const totals = {
+    all: db.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM transactions').get().total,
+    deposits: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'deposit' AND status = 'completed'").get().total,
+    withdrawals: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'withdrawal' AND status = 'completed'").get().total,
+    pending: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE status = 'pending'").get().total,
+    completed: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE status = 'completed'").get().total,
+    failed: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE status = 'failed'").get().total,
+    today: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE date(createdAt) = date('now')").get().total,
+    week: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE createdAt >= datetime('now', '-7 days')").get().total,
+    month: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE createdAt >= datetime('now', '-30 days')").get().total
+  };
+
+  // Totais por gateway
+  const gateways = db.prepare("SELECT gateway, COALESCE(SUM(amount), 0) as total FROM transactions WHERE gateway IS NOT NULL GROUP BY gateway").all();
+  gateways.forEach(gw => {
+    totals[`gateway_${gw.gateway}`] = gw.total;
+  });
+
+  res.json({
+    transactions,
+    totals,
+    count: transactions.length
+  });
 });
 
 // ══════════════════════════════════
@@ -1745,6 +1840,36 @@ app.post('/painel/api/transactions/:id/reject', panelAuth, (req, res) => {
   }
 });
 
+// Listar usuários para controle (paginado)
+app.get('/painel/api/users/control', panelAuth, (req, res) => {
+  const { search, limit = 50, offset = 0 } = req.query;
+
+  let whereClause = '';
+  let params = [];
+
+  if (search) {
+    whereClause = 'WHERE chatId LIKE ? OR firstName LIKE ? OR username LIKE ?';
+    params = [`%${search}%`, `%${search}%`, `%${search}%`];
+  }
+
+  const users = db.prepare(`
+    SELECT chatId, firstName, lastName, username, balance, createdAt, banned,
+           (SELECT COUNT(*) FROM transactions WHERE transactions.chatId = users.chatId) as transactionCount
+    FROM users
+    ${whereClause}
+    ORDER BY createdAt DESC
+    LIMIT ? OFFSET ?
+  `).all(...params, parseInt(limit), parseInt(offset));
+
+  const totalCount = db.prepare(`SELECT COUNT(*) as count FROM users ${whereClause}`).get(...params).count;
+
+  res.json({
+    users,
+    totalCount,
+    hasMore: parseInt(offset) + parseInt(limit) < totalCount
+  });
+});
+
 // Configurações de usuário
 app.get('/painel/api/user/:chatId/settings', panelAuth, (req, res) => {
   const { chatId } = req.params;
@@ -1799,6 +1924,63 @@ app.post('/painel/api/user/:chatId/settings', panelAuth, (req, res) => {
     console.error('Erro ao salvar configurações:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
+});
+
+// Definir gateway preferido do usuário
+app.post('/painel/api/user/:chatId/set-gateway', panelAuth, (req, res) => {
+  const { chatId } = req.params;
+  const { gateway } = req.body;
+
+  const validGateways = ['XPayTech', 'PagNet', 'FluxoPay', 'SharkBanking', 'PodPay'];
+
+  if (!validGateways.includes(gateway)) {
+    return res.status(400).json({ error: 'Gateway inválido' });
+  }
+
+  try {
+    db.prepare(`
+      UPDATE users SET preferred_gateway = ? WHERE chatId = ?
+    `).run(gateway, chatId);
+
+    // Audit log
+    auditLog('SET_PREFERRED_GATEWAY', req.user?.id || 'admin', chatId, { gateway });
+
+    res.json({ success: true, gateway });
+  } catch (error) {
+    console.error('Erro ao definir gateway:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Obter gateway preferido do usuário
+app.get('/painel/api/user/:chatId/gateway', panelAuth, (req, res) => {
+  const { chatId } = req.params;
+
+  try {
+    const user = db.prepare('SELECT preferred_gateway FROM users WHERE chatId = ?').get(chatId);
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    res.json({ gateway: user.preferred_gateway || 'XPayTech' });
+  } catch (error) {
+    console.error('Erro ao buscar gateway:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Listar gateways disponíveis
+app.get('/painel/api/gateways/available', panelAuth, (req, res) => {
+  const gateways = [
+    { id: 'XPayTech', name: 'XPayTech', active: true },
+    { id: 'PagNet', name: 'PagNet', active: true },
+    { id: 'FluxoPay', name: 'FluxoPay', active: true },
+    { id: 'SharkBanking', name: 'SharkBanking', active: true },
+    { id: 'PodPay', name: 'PodPay', active: true }
+  ];
+
+  res.json(gateways);
 });
 
 // Bloquear/desbloquear saques de usuário

@@ -233,6 +233,26 @@ tbody tr:hover td{background:rgba(255,255,255,.02);}
 .template-name{font-size:14px;font-weight:600;color:#fff;margin-bottom:4px;}
 .template-preview{font-size:11px;color:var(--muted);line-height:1.4;}
 
+/* ══ FILTROS CLICÁVEIS ══ */
+.stat-card.filterable{cursor:pointer;transition:all .3s ease;}
+.stat-card.filterable:hover{transform:translateY(-4px);border-color:var(--blue);background:rgba(59,130,246,.05);}
+.stat-card.filterable.active{border-color:var(--blue);background:rgba(59,130,246,.1);transform:translateY(-2px);}
+.stat-card.filterable .stat-value{font-weight:700;}
+
+/* ══ INDICADORES DE GATEWAY ══ */
+.gateway-badge{display:inline-block;background:var(--blue);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;}
+.gateway-badge.xpaytech{background:var(--green);}
+.gateway-badge.pagnet{background:var(--blue);}
+.gateway-badge.fluxopay{background:var(--purple);}
+.gateway-badge.sharkbanking{background:var(--orange);}
+
+/* ══ PAGINAÇÃO ══ */
+.pagination{display:flex;justify-content:center;gap:8px;margin-top:16px;}
+.pagination button{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:4px;font-size:12px;}
+.pagination button:hover{background:var(--surface2);}
+.pagination button.active{background:var(--blue);border-color:var(--blue);color:#fff;}
+.pagination button:disabled{opacity:0.5;cursor:not-allowed;}
+
 @media(max-width:600px){.sidebar{display:none;}.content{margin-left:0;}.stats-row{grid-template-columns:1fr 1fr;}.settings-grid{grid-template-columns:1fr;}.transaction-actions{flex-direction:column;}}
 </style>
 </head>
@@ -338,20 +358,131 @@ tbody tr:hover td{background:rgba(255,255,255,.02);}
     <div id="page-transactions" class="page">
       <div class="page-header">
         <div class="page-title">Transações</div>
-        <div class="page-sub">Histórico completo de depósitos e saques</div>
+        <div class="page-sub">Histórico completo com filtros e totais por categoria</div>
       </div>
-      <div class="stats-row">
-        <div class="stat-card"><div class="stat-icon green">⬇️</div><div class="stat-info"><div class="stat-value" id="t-dep">0</div><div class="stat-label">Depósitos</div></div></div>
-        <div class="stat-card"><div class="stat-icon blue">⬆️</div><div class="stat-info"><div class="stat-value" id="t-saq">0</div><div class="stat-label">Saques</div></div></div>
-        <div class="stat-card"><div class="stat-icon yellow">💰</div><div class="stat-info"><div class="stat-value" id="t-vol">R$ 0</div><div class="stat-label">Volume total</div></div></div>
-        <div class="stat-card"><div class="stat-icon yellow">⏳</div><div class="stat-info"><div class="stat-value" id="t-pend">0</div><div class="stat-label">Pendentes</div></div></div>
-      </div>
+
+      <!-- Filtros de Tipo com Totais -->
       <div class="section">
-        <div class="section-header"><div class="section-title">Últimas 100 Transações</div></div>
-        <div class="table-card"><div class="table-wrap"><table>
-          <thead><tr><th>#</th><th>Tipo</th><th>Usuário</th><th>Valor</th><th>Taxa</th><th>Gateway</th><th>Status</th><th>Data</th></tr></thead>
-          <tbody id="tx-tbody"></tbody>
-        </table></div></div>
+        <div class="section-header">
+          <div class="section-title">📊 Filtros por Tipo</div>
+        </div>
+        <div class="stats-row">
+          <div class="stat-card filterable" onclick="filterTransactions('all')">
+            <div class="stat-icon blue">📋</div>
+            <div class="stat-info">
+              <div class="stat-value" id="total-all">R$ 0,00</div>
+              <div class="stat-label">Todas</div>
+            </div>
+          </div>
+          <div class="stat-card filterable" onclick="filterTransactions('deposit')">
+            <div class="stat-icon green">⬇️</div>
+            <div class="stat-info">
+              <div class="stat-value" id="total-deposits">R$ 0,00</div>
+              <div class="stat-label">Depósitos</div>
+            </div>
+          </div>
+          <div class="stat-card filterable" onclick="filterTransactions('withdrawal')">
+            <div class="stat-icon red">⬆️</div>
+            <div class="stat-info">
+              <div class="stat-value" id="total-withdrawals">R$ 0,00</div>
+              <div class="stat-label">Saques</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filtros de Status com Totais -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">🎯 Filtros por Status</div>
+        </div>
+        <div class="stats-row">
+          <div class="stat-card filterable" onclick="filterTransactions('pending')">
+            <div class="stat-icon orange">⏳</div>
+            <div class="stat-info">
+              <div class="stat-value" id="total-pending">R$ 0,00</div>
+              <div class="stat-label">Pendentes</div>
+            </div>
+          </div>
+          <div class="stat-card filterable" onclick="filterTransactions('completed')">
+            <div class="stat-icon green">✅</div>
+            <div class="stat-info">
+              <div class="stat-value" id="total-completed">R$ 0,00</div>
+              <div class="stat-label">Completas</div>
+            </div>
+          </div>
+          <div class="stat-card filterable" onclick="filterTransactions('failed')">
+            <div class="stat-icon red">❌</div>
+            <div class="stat-info">
+              <div class="stat-value" id="total-failed">R$ 0,00</div>
+              <div class="stat-label">Falharam</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filtros de Período -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">📅 Filtros por Período</div>
+        </div>
+        <div class="stats-row">
+          <div class="stat-card filterable" onclick="filterTransactions('today')">
+            <div class="stat-icon blue">📅</div>
+            <div class="stat-info">
+              <div class="stat-value" id="total-today">R$ 0,00</div>
+              <div class="stat-label">Hoje</div>
+            </div>
+          </div>
+          <div class="stat-card filterable" onclick="filterTransactions('week')">
+            <div class="stat-icon purple">📊</div>
+            <div class="stat-info">
+              <div class="stat-value" id="total-week">R$ 0,00</div>
+              <div class="stat-label">7 Dias</div>
+            </div>
+          </div>
+          <div class="stat-card filterable" onclick="filterTransactions('month')">
+            <div class="stat-icon green">📈</div>
+            <div class="stat-info">
+              <div class="stat-value" id="total-month">R$ 0,00</div>
+              <div class="stat-label">30 Dias</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lista de Transações -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title" id="transactions-title">📋 Todas as Transações</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-sm" onclick="clearFilters()">🔄 Limpar Filtros</button>
+            <button class="btn btn-sm" onclick="loadTransactions()">🔄 Atualizar</button>
+          </div>
+        </div>
+        <div class="table-card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Tipo</th>
+                  <th>Usuário</th>
+                  <th>Valor</th>
+                  <th>Gateway</th>
+                  <th>Status</th>
+                  <th>Data</th>
+                </tr>
+              </thead>
+              <tbody id="tx-tbody">
+                <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted);">Carregando transações...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div id="transaction-count" style="margin-top:10px;font-size:12px;color:var(--muted);text-align:center;">
+          <!-- Contador será atualizado via JavaScript -->
+        </div>
       </div>
     </div>
 
@@ -447,20 +578,55 @@ tbody tr:hover td{background:rgba(255,255,255,.02);}
     <div id="page-user-controls" class="page">
       <div class="page-header">
         <div class="page-title">Controle de Usuários</div>
-        <div class="page-sub">Configurações individuais de saques e limites</div>
+        <div class="page-sub">Configurações individuais de saques, limites e gateways</div>
       </div>
 
+      <!-- Busca de Usuários -->
       <div class="section">
         <div class="section-header">
           <div class="section-title">🔍 Buscar Usuário</div>
         </div>
         <div style="display:flex;gap:12px;margin-bottom:20px;">
-          <input type="text" id="user-search" placeholder="Digite o ID do usuário ou nome..." style="flex:1;">
-          <button class="btn btn-primary" onclick="searchUser()">🔍 Buscar</button>
+          <input type="text" id="user-search" placeholder="Digite ID, nome ou username..." style="flex:1;" onkeyup="if(event.key==='Enter')searchUsers()">
+          <button class="btn btn-primary" onclick="searchUsers()">🔍 Buscar</button>
+          <button class="btn btn-secondary" onclick="loadAllUsers()">👥 Todos</button>
         </div>
-        <div id="user-settings-container" style="display:none;">
-          <!-- Configurações do usuário -->
+      </div>
+
+      <!-- Lista de Usuários -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">👥 Lista de Usuários</div>
+          <button class="btn btn-sm" onclick="loadAllUsers()">🔄 Atualizar</button>
         </div>
+        <div class="table-card">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Nome</th>
+                  <th>Saldo</th>
+                  <th>Transações</th>
+                  <th>Cadastro</th>
+                  <th>Status</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="users-control-tbody">
+                <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted);">Carregando usuários...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div id="users-pagination" style="margin-top:15px;text-align:center;">
+          <!-- Paginação será adicionada via JavaScript -->
+        </div>
+      </div>
+
+      <!-- Configurações do Usuário (Inicialmente Oculto) -->
+      <div id="user-settings-container" style="display:none;">
+        <!-- Configurações serão carregadas via JavaScript -->
       </div>
     </div>
 
@@ -955,19 +1121,135 @@ async function confirmBalAdj() {
 
 document.getElementById('bal-amount').addEventListener('keydown', e => { if(e.key==='Enter') confirmBalAdj(); });
 
-// ══ TRANSAÇÕES ══
-async function loadTransactions() {
-  const txs = await api('GET', '/painel/api/transactions');
-  if(!txs) return;
-  const deps  = txs.filter(t=>t.type==='deposit');
-  const saqs  = txs.filter(t=>t.type==='withdrawal');
-  const pend  = txs.filter(t=>t.status==='pending').length;
-  const vol   = deps.filter(t=>t.status==='completed').reduce((s,t)=>s+t.amount,0);
-  document.getElementById('t-dep').textContent  = deps.length;
-  document.getElementById('t-saq').textContent  = saqs.length;
-  document.getElementById('t-vol').textContent  = 'R$ '+fmt(vol);
-  document.getElementById('t-pend').textContent = pend;
-  renderTx(txs);
+// ══ TRANSAÇÕES COM FILTROS ══
+let currentFilter = {};
+let transactionData = null;
+
+async function loadTransactions(filters = {}) {
+  const params = new URLSearchParams(filters);
+  const response = await api('GET', `/painel/api/transactions?${params}`);
+
+  if (!response) return;
+
+  transactionData = response;
+  currentFilter = filters;
+
+  // Atualizar totais nos cards
+  updateTransactionTotals(response.totals);
+
+  // Atualizar tabela
+  updateTransactionTable(response.transactions);
+
+  // Atualizar contador
+  document.getElementById('transaction-count').textContent =
+    `Mostrando ${response.transactions.length} transações`;
+
+  // Atualizar título
+  const filterName = getFilterDisplayName(filters);
+  document.getElementById('transactions-title').textContent =
+    `📋 ${filterName}`;
+
+  // Atualizar estado dos cards
+  updateFilterCardStates(filters);
+}
+
+function updateTransactionTotals(totals) {
+  document.getElementById('total-all').textContent = `R$ ${totals.all.toFixed(2)}`;
+  document.getElementById('total-deposits').textContent = `R$ ${totals.deposits.toFixed(2)}`;
+  document.getElementById('total-withdrawals').textContent = `R$ ${totals.withdrawals.toFixed(2)}`;
+  document.getElementById('total-pending').textContent = `R$ ${totals.pending.toFixed(2)}`;
+  document.getElementById('total-completed').textContent = `R$ ${totals.completed.toFixed(2)}`;
+  document.getElementById('total-failed').textContent = `R$ ${totals.failed.toFixed(2)}`;
+  document.getElementById('total-today').textContent = `R$ ${totals.today.toFixed(2)}`;
+  document.getElementById('total-week').textContent = `R$ ${totals.week.toFixed(2)}`;
+  document.getElementById('total-month').textContent = `R$ ${totals.month.toFixed(2)}`;
+}
+
+function updateTransactionTable(transactions) {
+  if (!transactions || transactions.length === 0) {
+    document.getElementById('tx-tbody').innerHTML =
+      '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted);">Nenhuma transação encontrada</td></tr>';
+    return;
+  }
+
+  document.getElementById('tx-tbody').innerHTML = transactions.map(tx => `
+    <tr>
+      <td>#${tx.id}</td>
+      <td>
+        <span class="badge ${tx.type}">
+          ${tx.type === 'deposit' ? '⬇️ PIX' : '⬆️ Saque'}
+        </span>
+      </td>
+      <td>
+        <div style="font-size:12px;">${tx.firstName || 'Usuário'}</div>
+        <div style="font-size:10px;color:var(--muted);">${tx.chatId}</div>
+      </td>
+      <td style="font-weight:600;color:${tx.type === 'deposit' ? 'var(--green)' : 'var(--red)'};">
+        R$ ${(+tx.amount).toFixed(2)}
+      </td>
+      <td>
+        ${tx.gateway ? `<span class="gateway-badge ${tx.gateway.toLowerCase()}">${tx.gateway}</span>` : '—'}
+      </td>
+      <td>
+        <span class="badge ${tx.status}">
+          ${getStatusDisplay(tx.status)}
+        </span>
+      </td>
+      <td style="font-size:11px;">
+        ${new Date(tx.createdAt).toLocaleDateString('pt-BR')}<br>
+        ${new Date(tx.createdAt).toLocaleTimeString('pt-BR')}
+      </td>
+    </tr>
+  `).join('');
+}
+
+function getStatusDisplay(status) {
+  const statusMap = {
+    'pending': '⏳ Pendente',
+    'completed': '✅ Completo',
+    'failed': '❌ Falhou'
+  };
+  return statusMap[status] || status;
+}
+
+function getFilterDisplayName(filters) {
+  if (filters.type === 'deposit') return 'Depósitos';
+  if (filters.type === 'withdrawal') return 'Saques';
+  if (filters.status === 'pending') return 'Transações Pendentes';
+  if (filters.status === 'completed') return 'Transações Completas';
+  if (filters.status === 'failed') return 'Transações Falharam';
+  if (filters.period === 'today') return 'Transações de Hoje';
+  if (filters.period === 'week') return 'Últimos 7 Dias';
+  if (filters.period === 'month') return 'Últimos 30 Dias';
+  return 'Todas as Transações';
+}
+
+function updateFilterCardStates(filters) {
+  // Remover estado ativo de todos os cards
+  document.querySelectorAll('.stat-card.filterable').forEach(card => {
+    card.classList.remove('active');
+  });
+}
+
+function filterTransactions(filterType) {
+  const filterMap = {
+    'all': {},
+    'deposit': { type: 'deposit' },
+    'withdrawal': { type: 'withdrawal' },
+    'pending': { status: 'pending' },
+    'completed': { status: 'completed' },
+    'failed': { status: 'failed' },
+    'today': { period: 'today' },
+    'week': { period: 'week' },
+    'month': { period: 'month' }
+  };
+
+  const filters = filterMap[filterType] || {};
+  loadTransactions(filters);
+}
+
+function clearFilters() {
+  loadTransactions();
 }
 
 function renderTx(txs) {
@@ -1202,6 +1484,7 @@ function goTo(page, btn) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(`page-${page}`).classList.add('active');
 
+  // Carregar dados específicos de cada página
   if(page==='users')        loadUsers();
   if(page==='transactions') loadTransactions();
   if(page==='gateways')     loadGateways();
@@ -1210,6 +1493,9 @@ function goTo(page, btn) {
   if(page==='pending-transactions') loadPendingTransactions();
   if(page==='user-controls') loadUserControls();
   if(page==='audit-logs')   loadAuditLogs();
+
+  // Log de navegação para debug
+  console.log(`Navegando para: ${page}`);
 }
 
 // ══ TRANSAÇÕES PENDENTES ══
@@ -1338,9 +1624,168 @@ async function rejectTransaction(id) {
 }
 
 // ══ CONTROLE DE USUÁRIOS ══
+let usersData = [];
+let usersCurrentPage = 0;
+let usersPerPage = 20;
+
 async function loadUserControls() {
-  // Resetar container
-  document.getElementById('user-settings-container').style.display = 'none';
+  // Carregar todos os usuários automaticamente
+  loadAllUsers();
+}
+
+async function loadAllUsers(page = 0) {
+  try {
+    const response = await api('GET', `/painel/api/users/control?limit=${usersPerPage}&offset=${page * usersPerPage}`);
+
+    if (!response) {
+      document.getElementById('users-control-tbody').innerHTML =
+        '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--red);">Erro ao carregar usuários</td></tr>';
+      return;
+    }
+
+    usersData = response.users;
+    usersCurrentPage = page;
+
+    renderUsersTable(response.users);
+    renderUsersPagination(response.totalCount, response.hasMore);
+
+  } catch (error) {
+    console.error('Erro ao carregar usuários:', error);
+    document.getElementById('users-control-tbody').innerHTML =
+      '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--red);">Erro ao carregar usuários</td></tr>';
+  }
+}
+
+async function searchUsers() {
+  const search = document.getElementById('user-search').value.trim();
+
+  if (!search) {
+    loadAllUsers();
+    return;
+  }
+
+  try {
+    const response = await api('GET', `/painel/api/users/control?search=${encodeURIComponent(search)}&limit=50`);
+
+    if (!response) return;
+
+    renderUsersTable(response.users);
+    renderUsersPagination(response.totalCount, false);
+
+  } catch (error) {
+    console.error('Erro na busca:', error);
+    toast('Erro ao buscar usuários', 'error');
+  }
+}
+
+function renderUsersTable(users) {
+  if (!users || users.length === 0) {
+    document.getElementById('users-control-tbody').innerHTML =
+      '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted);">Nenhum usuário encontrado</td></tr>';
+    return;
+  }
+
+  document.getElementById('users-control-tbody').innerHTML = users.map(user => `
+    <tr>
+      <td style="font-family:monospace;font-size:11px;">${user.chatId}</td>
+      <td>
+        <div style="font-weight:600;">${user.firstName || 'Sem nome'}</div>
+        <div style="font-size:10px;color:var(--muted);">@${user.username || 'sem_username'}</div>
+      </td>
+      <td style="font-weight:600;color:${user.balance > 0 ? 'var(--green)' : 'var(--muted)'};">
+        R$ ${user.balance.toFixed(2)}
+      </td>
+      <td style="text-align:center;">
+        <span class="badge blue">${user.transactionCount || 0}</span>
+      </td>
+      <td style="font-size:11px;">
+        ${new Date(user.createdAt).toLocaleDateString('pt-BR')}
+      </td>
+      <td>
+        <span class="badge ${user.banned ? 'red' : 'green'}">
+          ${user.banned ? '🚫 Banido' : '✅ Ativo'}
+        </span>
+      </td>
+      <td>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          <button class="btn btn-sm" onclick="configureUser('${user.chatId}')" style="font-size:10px;padding:4px 8px;">
+            ⚙️ Config
+          </button>
+          <button class="btn btn-sm" onclick="viewUserHistory('${user.chatId}')" style="font-size:10px;padding:4px 8px;">
+            📋 Histórico
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function renderUsersPagination(totalCount, hasMore) {
+  const totalPages = Math.ceil(totalCount / usersPerPage);
+  const currentPage = usersCurrentPage;
+
+  if (totalPages <= 1) {
+    document.getElementById('users-pagination').innerHTML = '';
+    return;
+  }
+
+  let paginationHTML = '<div class="pagination">';
+
+  // Botão anterior
+  if (currentPage > 0) {
+    paginationHTML += `<button onclick="loadAllUsers(${currentPage - 1})">« Anterior</button>`;
+  } else {
+    paginationHTML += `<button disabled>« Anterior</button>`;
+  }
+
+  // Páginas numeradas (máx 5)
+  const start = Math.max(0, currentPage - 2);
+  const end = Math.min(totalPages, start + 5);
+
+  for (let i = start; i < end; i++) {
+    const active = i === currentPage ? 'active' : '';
+    paginationHTML += `<button class="${active}" onclick="loadAllUsers(${i})">${i + 1}</button>`;
+  }
+
+  // Botão próximo
+  if (hasMore) {
+    paginationHTML += `<button onclick="loadAllUsers(${currentPage + 1})">Próximo »</button>`;
+  } else {
+    paginationHTML += `<button disabled>Próximo »</button>`;
+  }
+
+  paginationHTML += '</div>';
+
+  document.getElementById('users-pagination').innerHTML = paginationHTML;
+}
+
+async function configureUser(chatId) {
+  try {
+    // Buscar dados do usuário
+    const users = await api('GET', '/painel/api/users');
+    const user = users.find(u => u.chatId === chatId);
+
+    if (!user) {
+      toast('Usuário não encontrado', 'error');
+      return;
+    }
+
+    // Buscar configurações
+    const [settings, gateway] = await Promise.all([
+      api('GET', `/painel/api/user/${chatId}/settings`),
+      api('GET', `/painel/api/user/${chatId}/gateway`)
+    ]);
+
+    // Buscar gateways disponíveis
+    const gateways = await api('GET', '/painel/api/gateways/available');
+
+    // Mostrar interface de configurações
+    showUserSettingsAdvanced(user, settings, gateway, gateways);
+
+  } catch (error) {
+    console.error('Erro ao carregar configurações:', error);
+    toast('Erro ao carregar configurações do usuário', 'error');
+  }
 }
 
 async function searchUser() {
@@ -1371,13 +1816,103 @@ async function searchUser() {
   }
 }
 
-function showUserSettings(user, settings) {
+function showUserSettingsAdvanced(user, settings, gateway, gateways) {
   const container = document.getElementById('user-settings-container');
 
   container.innerHTML = `
     <div class="user-settings-card">
-      <h3 style="margin:0 0 16px 0;">👤 ${user.firstName || 'Usuário'} (${user.chatId})</h3>
-      <p style="margin:0 0 20px 0;color:var(--muted);">Saldo atual: R$ ${user.balance.toFixed(2)}</p>
+      <h3 style="margin:0 0 16px 0;">⚙️ Configurações - ${user.firstName || 'Usuário'} (${user.chatId})</h3>
+      <p style="margin:0 0 20px 0;color:var(--muted);">Saldo atual: R$ ${user.balance.toFixed(2)} | Transações: ${user.transactionCount || 0}</p>
+
+      <div class="settings-grid">
+        <!-- Gateway PIX -->
+        <div class="setting-group">
+          <label class="setting-label">🏦 Gateway PIX Preferido</label>
+          <select class="setting-input" id="user-gateway">
+            ${gateways.map(gw => `
+              <option value="${gw.id}" ${gateway?.gateway === gw.id ? 'selected' : ''}>
+                ${gw.name} ${gw.active ? '✅' : '⚠️'}
+              </option>
+            `).join('')}
+          </select>
+          <small style="color:var(--muted);">Gateway usado para saques deste usuário</small>
+        </div>
+
+        <!-- Limite de Aprovação Automática -->
+        <div class="setting-group">
+          <label class="setting-label">💰 Limite Automático</label>
+          <input type="number" class="setting-input" id="auto-limit" value="${settings.auto_approve_limit}" min="0" step="10">
+          <small style="color:var(--muted);">Saques até este valor são automáticos</small>
+        </div>
+
+        <!-- Limite Diário -->
+        <div class="setting-group">
+          <label class="setting-label">📅 Limite Diário</label>
+          <input type="number" class="setting-input" id="daily-limit" value="${settings.daily_limit}" min="0" step="100">
+          <small style="color:var(--muted);">Máximo de saques por dia</small>
+        </div>
+
+        <!-- Limite Mensal -->
+        <div class="setting-group">
+          <label class="setting-label">📊 Limite Mensal</label>
+          <input type="number" class="setting-input" id="monthly-limit" value="${settings.monthly_limit}" min="0" step="1000">
+          <small style="color:var(--muted);">Máximo de saques por mês</small>
+        </div>
+      </div>
+
+      <!-- Checkboxes de Configuração -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;margin:20px 0;">
+        <label class="setting-checkbox">
+          <input type="checkbox" id="require-approval" ${settings.requires_manual_approval ? 'checked' : ''}>
+          🔒 Todas as transações precisam de aprovação
+        </label>
+
+        <label class="setting-checkbox">
+          <input type="checkbox" id="withdrawals-blocked" ${settings.withdrawals_blocked ? 'checked' : ''}>
+          🚫 Saques bloqueados
+        </label>
+
+        <label class="setting-checkbox">
+          <input type="checkbox" id="alert-new-pix" ${settings.alert_new_pix_key ? 'checked' : ''}>
+          🔔 Alertar sobre chaves PIX novas
+        </label>
+
+        <label class="setting-checkbox">
+          <input type="checkbox" id="alert-multiple" ${settings.alert_multiple_withdrawals ? 'checked' : ''}>
+          ⚠️ Alertar sobre múltiplos saques
+        </label>
+
+        <label class="setting-checkbox">
+          <input type="checkbox" id="alert-night" ${settings.alert_night_hours ? 'checked' : ''}>
+          🌙 Alertar sobre saques noturnos (23h-5h)
+        </label>
+
+        <label class="setting-checkbox">
+          <input type="checkbox" id="user-banned" ${user.banned ? 'checked' : ''}>
+          🚫 Usuário banido
+        </label>
+      </div>
+
+      <!-- Botões de Ação -->
+      <div style="display:flex;gap:12px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:20px;margin-top:20px;">
+        <button class="btn btn-primary" onclick="saveUserSettingsAdvanced('${user.chatId}')">💾 Salvar Todas as Configurações</button>
+        <button class="btn btn-secondary" onclick="viewUserHistory('${user.chatId}')">📋 Ver Histórico Completo</button>
+        <button class="btn btn-secondary" onclick="sendUserMessage('${user.chatId}')">💬 Enviar Mensagem</button>
+        <button class="btn" style="background:var(--orange);color:#fff;" onclick="quickBalanceAdjust('${user.chatId}')">💰 Ajustar Saldo</button>
+      </div>
+    </div>
+  `;
+
+  container.style.display = 'block';
+  container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function showUserSettings(user, settings) {
+  // Função legacy - redireciona para a versão avançada
+  showUserSettingsAdvanced(user, settings, { gateway: 'XPayTech' }, [
+    { id: 'XPayTech', name: 'XPayTech', active: true }
+  ]);
+}
 
       <div class="settings-grid">
         <div class="setting-group">
@@ -1440,29 +1975,80 @@ function showUserSettings(user, settings) {
   container.style.display = 'block';
 }
 
-async function saveUserSettings(chatId) {
-  const settings = {
-    auto_approve_limit: parseFloat(document.getElementById('auto-limit').value) || 1000,
-    daily_limit: parseFloat(document.getElementById('daily-limit').value) || 10000,
-    monthly_limit: parseFloat(document.getElementById('monthly-limit').value) || 50000,
-    alert_high_value: parseFloat(document.getElementById('alert-value').value) || 5000,
-    requires_manual_approval: document.getElementById('require-approval').checked,
-    withdrawals_blocked: document.getElementById('withdrawals-blocked').checked,
-    alert_new_pix_key: document.getElementById('alert-new-pix').checked,
-    alert_multiple_withdrawals: document.getElementById('alert-multiple').checked,
-    alert_night_hours: document.getElementById('alert-night').checked
-  };
-
+async function saveUserSettingsAdvanced(chatId) {
   try {
-    const result = await api('POST', `/painel/api/user/${chatId}/settings`, settings);
-    if (result?.success) {
-      toast('✅ Configurações salvas!', 'success');
-    } else {
-      toast(`❌ ${result?.error || 'Erro ao salvar'}`, 'error');
+    // Coletar todas as configurações
+    const settings = {
+      auto_approve_limit: parseFloat(document.getElementById('auto-limit').value) || 1000,
+      daily_limit: parseFloat(document.getElementById('daily-limit').value) || 10000,
+      monthly_limit: parseFloat(document.getElementById('monthly-limit').value) || 50000,
+      requires_manual_approval: document.getElementById('require-approval').checked,
+      withdrawals_blocked: document.getElementById('withdrawals-blocked').checked,
+      alert_new_pix_key: document.getElementById('alert-new-pix').checked,
+      alert_multiple_withdrawals: document.getElementById('alert-multiple').checked,
+      alert_night_hours: document.getElementById('alert-night').checked
+    };
+
+    const gateway = document.getElementById('user-gateway').value;
+    const banned = document.getElementById('user-banned').checked;
+
+    // Salvar configurações em paralelo
+    const promises = [
+      api('POST', `/painel/api/user/${chatId}/settings`, settings),
+      api('POST', `/painel/api/user/${chatId}/set-gateway`, { gateway })
+    ];
+
+    // Se status de ban mudou, atualizar
+    if (banned !== undefined) {
+      promises.push(api('POST', `/painel/api/users/${chatId}/ban`, { banned }));
     }
-  } catch (e) {
+
+    const results = await Promise.all(promises);
+
+    const allSuccess = results.every(r => r?.success);
+
+    if (allSuccess) {
+      toast('✅ Todas as configurações salvas com sucesso!', 'success');
+      // Recarregar lista de usuários
+      loadAllUsers(usersCurrentPage);
+    } else {
+      toast('⚠️ Algumas configurações não foram salvas', 'warning');
+    }
+
+  } catch (error) {
+    console.error('Erro ao salvar configurações:', error);
     toast('❌ Erro ao salvar configurações', 'error');
   }
+}
+
+// Função legacy mantida para compatibilidade
+async function saveUserSettings(chatId) {
+  return saveUserSettingsAdvanced(chatId);
+}
+
+// Função para ajuste rápido de saldo
+function quickBalanceAdjust(chatId) {
+  const amount = prompt('Digite o valor para ajuste de saldo:\n(Positivo para adicionar, negativo para remover)');
+
+  if (!amount || isNaN(parseFloat(amount))) {
+    return;
+  }
+
+  const note = prompt('Motivo do ajuste (opcional):') || 'Ajuste manual via painel';
+
+  api('POST', `/painel/api/users/${chatId}/balance`, {
+    amount: parseFloat(amount),
+    note
+  }).then(result => {
+    if (result?.success) {
+      toast(`✅ Saldo ajustado! Novo saldo: R$ ${result.user.balance.toFixed(2)}`, 'success');
+      loadAllUsers(usersCurrentPage);
+    } else {
+      toast(`❌ ${result?.error || 'Erro ao ajustar saldo'}`, 'error');
+    }
+  }).catch(() => {
+    toast('❌ Erro ao ajustar saldo', 'error');
+  });
 }
 
 // ══ LOGS DE AUDITORIA ══
@@ -1521,18 +2107,23 @@ function formatAuditDetails(details) {
 }
 
 // ══ BROADCAST COM TEMPLATES ══
+let broadcastTemplatesLoaded = false;
+
 async function loadBroadcast() {
   const users = await api('GET', '/painel/api/users');
   if(!users) return;
   const active = users.filter(u=>!u.banned).length;
   document.getElementById('bc-users').textContent = active;
 
-  // Carregar templates
-  try {
-    const templates = await api('GET', '/painel/api/broadcast/templates');
-    showBroadcastTemplates(templates);
-  } catch (e) {
-    console.error('Erro ao carregar templates:', e);
+  // Carregar templates apenas uma vez
+  if (!broadcastTemplatesLoaded) {
+    try {
+      const templates = await api('GET', '/painel/api/broadcast/templates');
+      showBroadcastTemplates(templates);
+      broadcastTemplatesLoaded = true;
+    } catch (e) {
+      console.error('Erro ao carregar templates:', e);
+    }
   }
 }
 
@@ -1540,12 +2131,18 @@ function showBroadcastTemplates(templates) {
   if (!templates || templates.length === 0) return;
 
   const container = document.querySelector('.broadcast-card');
+
+  // Verificar se já existem templates para evitar duplicação
+  if (container.querySelector('.broadcast-templates')) {
+    return; // Já foi carregado
+  }
+
   const templatesHtml = `
-    <div style="margin-bottom:20px;">
-      <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Templates Prontos</label>
+    <div style="margin-bottom:20px;" id="templates-container">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">📝 Templates Prontos</label>
       <div class="broadcast-templates">
         ${templates.map(template => `
-          <div class="template-card" onclick="selectTemplate('${template.id}', '${template.content.replace(/'/g, "\\'")}')">
+          <div class="template-card" onclick="selectTemplate('${template.id}', \`${template.content.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`)">
             <div class="template-name">${template.name}</div>
             <div class="template-preview">${template.content.substring(0, 60)}...</div>
           </div>
@@ -1564,10 +2161,22 @@ function selectTemplate(id, content) {
   document.querySelectorAll('.template-card').forEach(card => {
     card.classList.remove('selected');
   });
-  event.target.closest('.template-card').classList.add('selected');
 
-  // Preencher textarea
-  document.getElementById('bc-message').value = content.replace(/\\'/g, "'");
+  // Encontrar o card que foi clicado
+  const clickedCard = event.target.closest('.template-card');
+  if (clickedCard) {
+    clickedCard.classList.add('selected');
+  }
+
+  // Preencher textarea com o conteúdo
+  const textarea = document.getElementById('bc-message');
+  if (textarea) {
+    textarea.value = content;
+    textarea.focus();
+
+    // Feedback visual de sucesso
+    toast(`✅ Template "${id}" selecionado!`, 'success');
+  }
 }
 
 // Atualizar função sendBroadcast para incluir template
