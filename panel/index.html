@@ -1708,19 +1708,24 @@ async function loadUserControls() {
 
 async function loadAllUsers(page = 0) {
   try {
-    const response = await api('GET', `/painel/api/users/control?limit=${usersPerPage}&offset=${page * usersPerPage}`);
+    const users = await api('GET', `/painel/api/users`);
 
-    if (!response) {
+    if (!users) {
       document.getElementById('users-control-tbody').innerHTML =
         '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--red);">Erro ao carregar usuários</td></tr>';
       return;
     }
 
-    usersData = response.users;
+    // Simular paginação no frontend para usuários
+    const startIndex = page * usersPerPage;
+    const endIndex = startIndex + usersPerPage;
+    const paginatedUsers = users.slice(startIndex, endIndex);
+
+    usersData = paginatedUsers;
     usersCurrentPage = page;
 
-    renderUsersTable(response.users);
-    renderUsersPagination(response.totalCount, response.hasMore);
+    renderUsersTable(paginatedUsers);
+    renderUsersPagination(users.length, startIndex + usersPerPage < users.length);
 
   } catch (error) {
     console.error('Erro ao carregar usuários:', error);
@@ -1738,12 +1743,19 @@ async function searchUsers() {
   }
 
   try {
-    const response = await api('GET', `/painel/api/users/control?search=${encodeURIComponent(search)}&limit=50`);
+    const users = await api('GET', `/painel/api/users`);
 
-    if (!response) return;
+    if (!users) return;
 
-    renderUsersTable(response.users);
-    renderUsersPagination(response.totalCount, false);
+    // Filtrar usuários no frontend
+    const filteredUsers = users.filter(user =>
+      user.chatId.includes(search) ||
+      (user.firstName && user.firstName.toLowerCase().includes(search.toLowerCase())) ||
+      (user.username && user.username.toLowerCase().includes(search.toLowerCase()))
+    );
+
+    renderUsersTable(filteredUsers);
+    renderUsersPagination(filteredUsers.length, false);
 
   } catch (error) {
     console.error('Erro na busca:', error);
