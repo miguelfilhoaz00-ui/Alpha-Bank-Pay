@@ -740,11 +740,19 @@ let gwData = {};
 let balModalChatId = null;
 
 // ══ LOGIN ══
+console.log('🚀 JavaScript carregado!');
+alert('JavaScript funcionando!');
 document.getElementById('pwd-input').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 
 async function doLogin() {
+  console.log('🔍 doLogin() chamada!');
+  alert('doLogin() executou!');
+
   const pwd = document.getElementById('pwd-input').value.trim();
+  console.log('🔑 Senha digitada:', pwd ? `(${pwd.length} chars)` : '(vazia)');
+
   if(!pwd) {
+    console.log('❌ Senha vazia');
     document.getElementById('login-err').textContent = '❌ Digite a senha de acesso.';
     document.getElementById('login-err').style.display='block';
     return;
