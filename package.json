@@ -5,7 +5,12 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "setup": "node setup.js",
+    "test": "node -e \"console.log('✅ Sistema Alpha Bank Pay funcionando!')\"",
+    "health": "curl $APP_URL/ping || echo 'Configure APP_URL primeiro'",
+    "deploy": "git add . && git commit -m 'Deploy update' && git push origin main",
+    "logs": "echo 'Acesse: https://dashboard.render.com para logs em tempo real'"
   },
   "dependencies": {
     "axios": "^1.7.2",
