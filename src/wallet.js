@@ -106,6 +106,35 @@ function completeDeposit(orderId) {
 // CRIAR SAQUE
 // Debita saldo antes de enviar para a API
 // ==========================
+// Nova função que verifica se precisa aprovação antes de debitar
+function createWithdrawalTxWithApproval(chatId, amount, pixKey, gateway = 'XPayTech') {
+  // Importar função de verificação do server.js
+  const needsApproval = require('./server').checkTransactionNeedsApproval;
+
+  // Verificar se precisa aprovação ANTES de debitar
+  if (needsApproval && needsApproval(chatId, amount, pixKey)) {
+    // NÃO debitar ainda - apenas criar registro de controle
+    const transactionId = generateTransactionId();
+
+    const result = db.prepare(`
+      INSERT INTO transaction_controls (transactionId, chatId, amount, pixKey, status)
+      VALUES (?, ?, ?, ?, 'pending')
+    `).run(transactionId, chatId, amount, pixKey);
+
+    console.log(`⏳ [Wallet] Saque enviado para aprovação | chatId: ${chatId} | R$${amount.toFixed(2)} | ID: ${transactionId}`);
+
+    return {
+      needsApproval: true,
+      controlId: result.lastInsertRowid,
+      transactionId
+    };
+  }
+
+  // Aprovação automática - usar função original
+  return createWithdrawalTx(chatId, amount, gateway);
+}
+
+// Função original (mantida para compatibilidade)
 function createWithdrawalTx(chatId, amount, gateway = 'XPayTech') {
   const user = debitBalance(chatId, amount);
   if (!user) return null;
@@ -117,6 +146,11 @@ function createWithdrawalTx(chatId, amount, gateway = 'XPayTech') {
 
   console.log(`💸 [Wallet] Saque iniciado | chatId: ${chatId} | R$${amount.toFixed(2)} | Saldo restante: R$${user.balance.toFixed(2)}`);
   return { txId: result.lastInsertRowid, user };
+}
+
+// Gerar ID único para transação (mover aqui se não existir)
+function generateTransactionId() {
+  return `tx_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
 }
 
 // ==========================
@@ -198,9 +232,11 @@ module.exports = {
   createDepositTx,
   completeDeposit,
   createWithdrawalTx,
+  createWithdrawalTxWithApproval,
   completeWithdrawal,
   failWithdrawal,
   adminAdjust,
   getUserTransactions,
   getAllTransactions,
+  generateTransactionId,
 };

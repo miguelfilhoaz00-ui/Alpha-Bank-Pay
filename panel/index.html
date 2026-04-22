@@ -197,7 +197,43 @@ tbody tr:hover td{background:rgba(255,255,255,.02);}
 #toast.t-error  {border-left:3px solid var(--red);}
 
 @media(max-width:768px){.sidebar{width:200px;}.content{margin-left:200px;padding:20px 16px;}.gw-grid{grid-template-columns:1fr;}}
-@media(max-width:600px){.sidebar{display:none;}.content{margin-left:0;}.stats-row{grid-template-columns:1fr 1fr;}}
+/* ══ NOVAS FUNCIONALIDADES ══ */
+.transaction-list{display:flex;flex-direction:column;gap:12px;}
+.transaction-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;transition:border-color .2s;}
+.transaction-item:hover{border-color:var(--border2);}
+.transaction-header{display:flex;justify-content:between;align-items:flex-start;margin-bottom:12px;}
+.transaction-info{flex:1;}
+.transaction-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.transaction-id{font-size:12px;color:var(--muted);margin-bottom:4px;}
+.transaction-user{font-size:14px;font-weight:600;color:#fff;margin-bottom:4px;}
+.transaction-amount{font-size:16px;font-weight:700;color:var(--green);}
+.transaction-pix{font-size:12px;color:var(--muted);margin-top:4px;}
+.transaction-time{font-size:11px;color:var(--muted);}
+.btn-approve{background:var(--green);color:#fff;font-size:12px;padding:6px 12px;border-radius:6px;border:none;font-weight:600;}
+.btn-approve:hover{background:#059669;}
+.btn-reject{background:var(--red);color:#fff;font-size:12px;padding:6px 12px;border-radius:6px;border:none;font-weight:600;}
+.btn-reject:hover{background:#dc2626;}
+.btn-caution{background:var(--orange);color:#fff;font-size:12px;padding:6px 12px;border-radius:6px;border:none;font-weight:600;}
+.btn-caution:hover{background:#ea580c;}
+.user-settings-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-top:16px;}
+.settings-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;margin-bottom:20px;}
+.setting-group{display:flex;flex-direction:column;gap:8px;}
+.setting-label{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;}
+.setting-input{background:var(--dark);border:1px solid var(--border);color:#fff;padding:8px 12px;border-radius:6px;font-size:14px;}
+.setting-checkbox{display:flex;align-items:center;gap:8px;font-size:14px;}
+.audit-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;margin-bottom:8px;}
+.audit-header{display:flex;justify-content:between;align-items:center;margin-bottom:8px;}
+.audit-action{font-size:14px;font-weight:600;color:#fff;}
+.audit-time{font-size:11px;color:var(--muted);}
+.audit-details{font-size:12px;color:var(--muted);}
+.broadcast-templates{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:20px;}
+.template-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px;cursor:pointer;transition:all .2s;}
+.template-card:hover{border-color:var(--blue);background:rgba(59,130,246,.05);}
+.template-card.selected{border-color:var(--blue);background:rgba(59,130,246,.1);}
+.template-name{font-size:14px;font-weight:600;color:#fff;margin-bottom:4px;}
+.template-preview{font-size:11px;color:var(--muted);line-height:1.4;}
+
+@media(max-width:600px){.sidebar{display:none;}.content{margin-left:0;}.stats-row{grid-template-columns:1fr 1fr;}.settings-grid{grid-template-columns:1fr;}.transaction-actions{flex-direction:column;}}
 </style>
 </head>
 <body>
@@ -230,6 +266,10 @@ tbody tr:hover td{background:rgba(255,255,255,.02);}
       <button class="nav-item" onclick="goTo('users',this)"><span class="nav-icon">👥</span> Usuários</button>
       <button class="nav-item" onclick="goTo('transactions',this)"><span class="nav-icon">📋</span> Transações</button>
       <button class="nav-item" onclick="goTo('gateways',this)"><span class="nav-icon">💳</span> Gateways</button>
+      <div class="nav-label" style="margin-top:8px;">Controles</div>
+      <button class="nav-item" onclick="goTo('pending-transactions',this)"><span class="nav-icon">⏳</span> Pendências</button>
+      <button class="nav-item" onclick="goTo('user-controls',this)"><span class="nav-icon">👤</span> Controle de Usuários</button>
+      <button class="nav-item" onclick="goTo('audit-logs',this)"><span class="nav-icon">📝</span> Logs de Auditoria</button>
       <div class="nav-label" style="margin-top:8px;">Ferramentas</div>
       <button class="nav-item" onclick="goTo('broadcast',this)"><span class="nav-icon">📢</span> Broadcast</button>
     </div>
@@ -355,6 +395,98 @@ tbody tr:hover td{background:rgba(255,255,255,.02);}
             <span style="font-size:12px;color:var(--muted)">⚠️ Ação irreversível</span>
           </div>
           <div id="bc-result" class="broadcast-result"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PÁGINA PENDÊNCIAS -->
+    <div id="page-pending-transactions" class="page">
+      <div class="page-header">
+        <div class="page-title">Transações Pendentes</div>
+        <div class="page-sub">Aprovar ou rejeitar saques em análise</div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-icon blue">⏳</div>
+          <div class="stat-info">
+            <div class="stat-value" id="pending-count">0</div>
+            <div class="stat-label">Pendentes</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon orange">🔒</div>
+          <div class="stat-info">
+            <div class="stat-value" id="cautionary-count">0</div>
+            <div class="stat-label">Bloqueios Cautelares</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">⏳ Aguardando Aprovação</div>
+          <button class="btn btn-sm" onclick="loadPendingTransactions()">🔄 Atualizar</button>
+        </div>
+        <div id="pending-list" class="transaction-list">
+          <!-- Carregado via JavaScript -->
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">🔒 Bloqueios Cautelares Ativos</div>
+        </div>
+        <div id="cautionary-list" class="transaction-list">
+          <!-- Carregado via JavaScript -->
+        </div>
+      </div>
+    </div>
+
+    <!-- PÁGINA CONTROLE DE USUÁRIOS -->
+    <div id="page-user-controls" class="page">
+      <div class="page-header">
+        <div class="page-title">Controle de Usuários</div>
+        <div class="page-sub">Configurações individuais de saques e limites</div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">🔍 Buscar Usuário</div>
+        </div>
+        <div style="display:flex;gap:12px;margin-bottom:20px;">
+          <input type="text" id="user-search" placeholder="Digite o ID do usuário ou nome..." style="flex:1;">
+          <button class="btn btn-primary" onclick="searchUser()">🔍 Buscar</button>
+        </div>
+        <div id="user-settings-container" style="display:none;">
+          <!-- Configurações do usuário -->
+        </div>
+      </div>
+    </div>
+
+    <!-- PÁGINA LOGS DE AUDITORIA -->
+    <div id="page-audit-logs" class="page">
+      <div class="page-header">
+        <div class="page-title">Logs de Auditoria</div>
+        <div class="page-sub">Histórico de todas as ações administrativas</div>
+      </div>
+
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">📝 Histórico de Ações</div>
+          <div style="display:flex;gap:8px;">
+            <select id="audit-filter" onchange="loadAuditLogs()">
+              <option value="">Todas as ações</option>
+              <option value="APPROVE_TRANSACTION">Aprovações</option>
+              <option value="REJECT_TRANSACTION">Rejeições</option>
+              <option value="CAUTIONARY_BLOCK">Bloqueios Cautelares</option>
+              <option value="UPDATE_USER_SETTINGS">Alterações de Configuração</option>
+            </select>
+            <button class="btn btn-sm" onclick="loadAuditLogs()">🔄 Atualizar</button>
+          </div>
+        </div>
+        <div id="audit-logs-list">
+          <!-- Carregado via JavaScript -->
         </div>
       </div>
     </div>
@@ -1058,6 +1190,447 @@ async function confirmRef() {
   } catch(e) { toast('❌ Erro.','error'); }
   finally { btn.disabled=false; btn.textContent='Salvar vínculo'; }
 }
+
+// ══════════════════════════════════
+// NOVAS FUNCIONALIDADES DE CONTROLE
+// ══════════════════════════════════
+
+// Atualizar navegação para incluir novas páginas
+function goTo(page, btn) {
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(`page-${page}`).classList.add('active');
+
+  if(page==='users')        loadUsers();
+  if(page==='transactions') loadTransactions();
+  if(page==='gateways')     loadGateways();
+  if(page==='dashboard')    loadDashboard();
+  if(page==='broadcast')    loadBroadcast();
+  if(page==='pending-transactions') loadPendingTransactions();
+  if(page==='user-controls') loadUserControls();
+  if(page==='audit-logs')   loadAuditLogs();
+}
+
+// ══ TRANSAÇÕES PENDENTES ══
+async function loadPendingTransactions() {
+  const [pending, cautionary] = await Promise.all([
+    api('GET', '/painel/api/transactions/pending'),
+    api('GET', '/painel/api/transactions/cautionary')
+  ]);
+
+  document.getElementById('pending-count').textContent = pending?.length || 0;
+  document.getElementById('cautionary-count').textContent = cautionary?.length || 0;
+
+  // Renderizar pendentes
+  const pendingList = document.getElementById('pending-list');
+  if (!pending || pending.length === 0) {
+    pendingList.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px;">Nenhuma transação pendente</div>';
+  } else {
+    pendingList.innerHTML = pending.map(tx => `
+      <div class="transaction-item">
+        <div class="transaction-header">
+          <div class="transaction-info">
+            <div class="transaction-id">#${tx.id}</div>
+            <div class="transaction-user">${tx.firstName || 'Usuário'} (${tx.chatId})</div>
+            <div class="transaction-amount">R$ ${tx.amount.toFixed(2)}</div>
+            <div class="transaction-pix">PIX: ${maskPixKey(tx.pixKey)}</div>
+            <div class="transaction-time">${new Date(tx.created_at).toLocaleString()}</div>
+          </div>
+          <div class="transaction-actions">
+            <button class="btn-approve" onclick="approveTransaction(${tx.id})">✅ Aprovar</button>
+            <button class="btn-caution" onclick="applyCautionary(${tx.id})">🔒 Bloqueio Cautelar</button>
+            <button class="btn-reject" onclick="rejectTransaction(${tx.id})">❌ Rejeitar</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Renderizar cautelares
+  const cautionaryList = document.getElementById('cautionary-list');
+  if (!cautionary || cautionary.length === 0) {
+    cautionaryList.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px;">Nenhum bloqueio cautelar ativo</div>';
+  } else {
+    cautionaryList.innerHTML = cautionary.map(tx => {
+      const remainingTime = new Date(tx.cautionary_until) - new Date();
+      const hours = Math.max(0, Math.floor(remainingTime / (1000 * 60 * 60)));
+      const minutes = Math.max(0, Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60)));
+
+      return `
+        <div class="transaction-item" style="border-color:var(--orange);">
+          <div class="transaction-header">
+            <div class="transaction-info">
+              <div class="transaction-id">#${tx.id} - 🔒 BLOQUEIO CAUTELAR</div>
+              <div class="transaction-user">${tx.firstName || 'Usuário'} (${tx.chatId})</div>
+              <div class="transaction-amount">R$ ${tx.amount.toFixed(2)}</div>
+              <div class="transaction-pix">PIX: ${maskPixKey(tx.pixKey)}</div>
+              <div class="transaction-time">Restam: ${hours}h ${minutes}m</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:4px;">Motivo: ${tx.admin_notes || 'Análise de segurança'}</div>
+            </div>
+            <div class="transaction-actions">
+              <button class="btn-approve" onclick="approveTransaction(${tx.id})">✅ Liberar</button>
+              <button class="btn-reject" onclick="rejectTransaction(${tx.id})">❌ Rejeitar</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+}
+
+// Aprovar transação
+async function approveTransaction(id) {
+  const notes = prompt('Observações (opcional):') || '';
+
+  try {
+    const result = await api('POST', `/painel/api/transactions/${id}/approve`, { notes });
+    if (result?.success) {
+      toast('✅ Transação aprovada!', 'success');
+      loadPendingTransactions();
+    } else {
+      toast(`❌ ${result?.error || 'Erro ao aprovar'}`, 'error');
+    }
+  } catch (e) {
+    toast('❌ Erro ao aprovar transação', 'error');
+  }
+}
+
+// Aplicar bloqueio cautelar
+async function applyCautionary(id) {
+  const reason = prompt('Motivo do bloqueio cautelar:', 'Análise de segurança');
+  if (!reason) return;
+
+  const hours = parseInt(prompt('Horas de bloqueio:', '4'));
+  if (!hours || hours <= 0) return;
+
+  try {
+    const result = await api('POST', `/painel/api/transactions/${id}/cautionary`, { reason, hours });
+    if (result?.success) {
+      toast('🔒 Bloqueio cautelar aplicado!', 'success');
+      loadPendingTransactions();
+    } else {
+      toast(`❌ ${result?.error || 'Erro ao aplicar bloqueio'}`, 'error');
+    }
+  } catch (e) {
+    toast('❌ Erro ao aplicar bloqueio cautelar', 'error');
+  }
+}
+
+// Rejeitar transação
+async function rejectTransaction(id) {
+  const reason = prompt('Motivo da rejeição:', 'Transação rejeitada pela administração');
+  if (!reason) return;
+
+  if (!confirm('Confirma a rejeição desta transação?\nO saldo será devolvido ao usuário.')) return;
+
+  try {
+    const result = await api('POST', `/painel/api/transactions/${id}/reject`, { reason });
+    if (result?.success) {
+      toast('❌ Transação rejeitada!', 'success');
+      loadPendingTransactions();
+    } else {
+      toast(`❌ ${result?.error || 'Erro ao rejeitar'}`, 'error');
+    }
+  } catch (e) {
+    toast('❌ Erro ao rejeitar transação', 'error');
+  }
+}
+
+// ══ CONTROLE DE USUÁRIOS ══
+async function loadUserControls() {
+  // Resetar container
+  document.getElementById('user-settings-container').style.display = 'none';
+}
+
+async function searchUser() {
+  const query = document.getElementById('user-search').value.trim();
+  if (!query) {
+    toast('Digite um ID ou nome para buscar', 'error');
+    return;
+  }
+
+  try {
+    // Buscar usuário
+    const users = await api('GET', '/painel/api/users');
+    const user = users.find(u => u.chatId === query || u.firstName?.toLowerCase().includes(query.toLowerCase()));
+
+    if (!user) {
+      toast('Usuário não encontrado', 'error');
+      return;
+    }
+
+    // Buscar configurações
+    const settings = await api('GET', `/painel/api/user/${user.chatId}/settings`);
+
+    // Mostrar interface de configurações
+    showUserSettings(user, settings);
+
+  } catch (e) {
+    toast('Erro ao buscar usuário', 'error');
+  }
+}
+
+function showUserSettings(user, settings) {
+  const container = document.getElementById('user-settings-container');
+
+  container.innerHTML = `
+    <div class="user-settings-card">
+      <h3 style="margin:0 0 16px 0;">👤 ${user.firstName || 'Usuário'} (${user.chatId})</h3>
+      <p style="margin:0 0 20px 0;color:var(--muted);">Saldo atual: R$ ${user.balance.toFixed(2)}</p>
+
+      <div class="settings-grid">
+        <div class="setting-group">
+          <label class="setting-label">Limite de Aprovação Automática</label>
+          <input type="number" class="setting-input" id="auto-limit" value="${settings.auto_approve_limit}" min="0" step="10">
+          <small style="color:var(--muted);">Saques até este valor são aprovados automaticamente</small>
+        </div>
+
+        <div class="setting-group">
+          <label class="setting-label">Limite Diário</label>
+          <input type="number" class="setting-input" id="daily-limit" value="${settings.daily_limit}" min="0" step="100">
+        </div>
+
+        <div class="setting-group">
+          <label class="setting-label">Limite Mensal</label>
+          <input type="number" class="setting-input" id="monthly-limit" value="${settings.monthly_limit}" min="0" step="1000">
+        </div>
+
+        <div class="setting-group">
+          <label class="setting-label">Valor para Alerta</label>
+          <input type="number" class="setting-input" id="alert-value" value="${settings.alert_high_value}" min="0" step="100">
+        </div>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:20px;">
+        <label class="setting-checkbox">
+          <input type="checkbox" id="require-approval" ${settings.requires_manual_approval ? 'checked' : ''}>
+          Todas as transações precisam de aprovação
+        </label>
+
+        <label class="setting-checkbox">
+          <input type="checkbox" id="withdrawals-blocked" ${settings.withdrawals_blocked ? 'checked' : ''}>
+          Saques bloqueados
+        </label>
+
+        <label class="setting-checkbox">
+          <input type="checkbox" id="alert-new-pix" ${settings.alert_new_pix_key ? 'checked' : ''}>
+          Alertar sobre chaves PIX novas
+        </label>
+
+        <label class="setting-checkbox">
+          <input type="checkbox" id="alert-multiple" ${settings.alert_multiple_withdrawals ? 'checked' : ''}>
+          Alertar sobre múltiplos saques
+        </label>
+
+        <label class="setting-checkbox">
+          <input type="checkbox" id="alert-night" ${settings.alert_night_hours ? 'checked' : ''}>
+          Alertar sobre saques noturnos
+        </label>
+      </div>
+
+      <div style="display:flex;gap:12px;">
+        <button class="btn btn-primary" onclick="saveUserSettings('${user.chatId}')">💾 Salvar Configurações</button>
+        <button class="btn btn-secondary" onclick="viewUserHistory('${user.chatId}')">📋 Ver Histórico</button>
+        <button class="btn" onclick="sendUserMessage('${user.chatId}')">💬 Enviar Mensagem</button>
+      </div>
+    </div>
+  `;
+
+  container.style.display = 'block';
+}
+
+async function saveUserSettings(chatId) {
+  const settings = {
+    auto_approve_limit: parseFloat(document.getElementById('auto-limit').value) || 1000,
+    daily_limit: parseFloat(document.getElementById('daily-limit').value) || 10000,
+    monthly_limit: parseFloat(document.getElementById('monthly-limit').value) || 50000,
+    alert_high_value: parseFloat(document.getElementById('alert-value').value) || 5000,
+    requires_manual_approval: document.getElementById('require-approval').checked,
+    withdrawals_blocked: document.getElementById('withdrawals-blocked').checked,
+    alert_new_pix_key: document.getElementById('alert-new-pix').checked,
+    alert_multiple_withdrawals: document.getElementById('alert-multiple').checked,
+    alert_night_hours: document.getElementById('alert-night').checked
+  };
+
+  try {
+    const result = await api('POST', `/painel/api/user/${chatId}/settings`, settings);
+    if (result?.success) {
+      toast('✅ Configurações salvas!', 'success');
+    } else {
+      toast(`❌ ${result?.error || 'Erro ao salvar'}`, 'error');
+    }
+  } catch (e) {
+    toast('❌ Erro ao salvar configurações', 'error');
+  }
+}
+
+// ══ LOGS DE AUDITORIA ══
+async function loadAuditLogs() {
+  const filter = document.getElementById('audit-filter')?.value || '';
+
+  try {
+    const logs = await api('GET', `/painel/api/audit${filter ? `?action=${filter}` : ''}`);
+
+    const container = document.getElementById('audit-logs-list');
+    if (!logs || logs.length === 0) {
+      container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:40px;">Nenhum log encontrado</div>';
+      return;
+    }
+
+    container.innerHTML = logs.map(log => `
+      <div class="audit-item">
+        <div class="audit-header">
+          <div class="audit-action">${getActionName(log.action)}</div>
+          <div class="audit-time">${new Date(log.created_at).toLocaleString()}</div>
+        </div>
+        <div class="audit-details">
+          ${log.firstName || 'Usuário'} (${log.target_chatId}) - ${formatAuditDetails(log.details)}
+        </div>
+      </div>
+    `).join('');
+
+  } catch (e) {
+    toast('Erro ao carregar logs', 'error');
+  }
+}
+
+function getActionName(action) {
+  const actions = {
+    'APPROVE_TRANSACTION': '✅ Transação Aprovada',
+    'REJECT_TRANSACTION': '❌ Transação Rejeitada',
+    'CAUTIONARY_BLOCK': '🔒 Bloqueio Cautelar',
+    'UPDATE_USER_SETTINGS': '⚙️ Configurações Alteradas',
+    'BLOCK_WITHDRAWALS': '🚫 Saques Bloqueados',
+    'UNBLOCK_WITHDRAWALS': '✅ Saques Liberados'
+  };
+  return actions[action] || action;
+}
+
+function formatAuditDetails(details) {
+  if (!details) return '';
+  try {
+    const parsed = JSON.parse(details);
+    if (parsed.amount) return `Valor: R$ ${parsed.amount}`;
+    if (parsed.reason) return `Motivo: ${parsed.reason}`;
+    if (parsed.notes) return `Observações: ${parsed.notes}`;
+    return JSON.stringify(parsed);
+  } catch {
+    return details;
+  }
+}
+
+// ══ BROADCAST COM TEMPLATES ══
+async function loadBroadcast() {
+  const users = await api('GET', '/painel/api/users');
+  if(!users) return;
+  const active = users.filter(u=>!u.banned).length;
+  document.getElementById('bc-users').textContent = active;
+
+  // Carregar templates
+  try {
+    const templates = await api('GET', '/painel/api/broadcast/templates');
+    showBroadcastTemplates(templates);
+  } catch (e) {
+    console.error('Erro ao carregar templates:', e);
+  }
+}
+
+function showBroadcastTemplates(templates) {
+  if (!templates || templates.length === 0) return;
+
+  const container = document.querySelector('.broadcast-card');
+  const templatesHtml = `
+    <div style="margin-bottom:20px;">
+      <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Templates Prontos</label>
+      <div class="broadcast-templates">
+        ${templates.map(template => `
+          <div class="template-card" onclick="selectTemplate('${template.id}', '${template.content.replace(/'/g, "\\'")}')">
+            <div class="template-name">${template.name}</div>
+            <div class="template-preview">${template.content.substring(0, 60)}...</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  // Inserir antes do textarea
+  const textarea = container.querySelector('textarea');
+  textarea.insertAdjacentHTML('beforebegin', templatesHtml);
+}
+
+function selectTemplate(id, content) {
+  // Atualizar seleção visual
+  document.querySelectorAll('.template-card').forEach(card => {
+    card.classList.remove('selected');
+  });
+  event.target.closest('.template-card').classList.add('selected');
+
+  // Preencher textarea
+  document.getElementById('bc-message').value = content.replace(/\\'/g, "'");
+}
+
+// Atualizar função sendBroadcast para incluir template
+async function sendBroadcast() {
+  const message = document.getElementById('bc-message').value.trim();
+  if(!message) { toast('❌ Digite uma mensagem.','error'); return; }
+  if(!confirm(`Enviar mensagem para todos os usuários ativos?\n\n"${message.slice(0,100)}${message.length>100?'...':''}`)) return;
+  const btn = document.getElementById('bc-btn');
+  btn.disabled = true; btn.textContent = '⏳ Enviando...';
+  const res = document.getElementById('bc-result');
+  res.style.display = 'none';
+  try {
+    const r = await api('POST', '/painel/api/broadcast', { message });
+    if(r?.success) {
+      document.getElementById('bc-sent').textContent = `${r.sent} enviados`;
+      res.className = 'broadcast-result ok';
+      res.textContent = `✅ Broadcast enviado! ${r.sent} entregues, ${r.failed} falharam.`;
+      if(r.failedUsers?.length > 0) {
+        res.textContent += `\nPrimeiros erros: ${r.failedUsers.slice(0,3).map(f => f.chatId).join(', ')}`;
+      }
+      res.style.display = 'block';
+      document.getElementById('bc-message').value = '';
+      // Limpar seleção de template
+      document.querySelectorAll('.template-card').forEach(card => {
+        card.classList.remove('selected');
+      });
+      toast('✅ Broadcast concluído!', 'success');
+    } else {
+      res.className = 'broadcast-result err';
+      res.textContent = `❌ Erro: ${r?.error||'Falha desconhecida.'}`;
+      res.style.display = 'block';
+    }
+  } catch(e) { toast('❌ Erro ao enviar.','error'); }
+  finally { btn.disabled=false; btn.textContent='📢 Enviar para todos'; }
+}
+
+// Função auxiliar para mascarar chaves PIX
+function maskPixKey(key) {
+  if (!key) return '';
+  if (key.includes('@')) {
+    const [user, domain] = key.split('@');
+    return `${user.slice(0,2)}***@${domain}`;
+  }
+  if (key.length > 8) {
+    return `${key.slice(0,3)}***${key.slice(-3)}`;
+  }
+  return `${key.slice(0,2)}***`;
+}
+
+// Atualizar função loadAll para incluir novas páginas
+function loadAll() {
+  loadDashboard();
+  loadGateways();
+  loadPendingTransactions();
+}
+
+// Carregar pendências automaticamente a cada 30 segundos
+setInterval(() => {
+  if (document.getElementById('page-pending-transactions').classList.contains('active')) {
+    loadPendingTransactions();
+  }
+}, 30000);
+
 </script>
 </body>
 </html>

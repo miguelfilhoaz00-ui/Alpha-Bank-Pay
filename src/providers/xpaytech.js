@@ -81,18 +81,23 @@ async function createPix(chatId, amountReais) {
 // ==========================
 // SAQUE (pay-out)
 // ==========================
-async function withdraw(chatId, amountReais, pixKey, pixKeyType) {
+async function withdraw(chatId, amountReais, pixKey, pixKeyType, document = null) {
   const orderId = `xpay_out_${chatId}_${Date.now()}`;
   const token   = await getToken();
+
+  // Usar documento fornecido ou CPF válido padrão
+  const documentToUse = document || '60369486382'; // CPF válido fornecido pelo usuário
 
   const payload = {
     amount:     amountReais,
     webhook:    process.env.XPAYTECH_WEBHOOK_URL,
-    document:   '99999999999',
+    document:   documentToUse,
     pixKey,
     pixKeyType: pixKeyType.toUpperCase(),
     externalId: orderId
   };
+
+  console.log(`📤 [XPayTech] Iniciando saque R$ ${amountReais.toFixed(2)} | chatId: ${chatId} | chave: ${pixKey} | doc: ${documentToUse.substring(0,3)}***`);
 
   console.log(`📤 [XPayTech] Iniciando saque R$ ${amountReais.toFixed(2)} | chatId: ${chatId} | chave: ${pixKey}`);
 
