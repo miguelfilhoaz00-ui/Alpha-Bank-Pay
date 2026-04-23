@@ -1042,40 +1042,15 @@ clientBot.on('callback_query', async (query) => {
 
       let result;
 
-      // Usar gateway específico do usuário
+      // Usar gateway específico do usuário - REVERTIDO PARA FUNCIONAMENTO ORIGINAL
       switch (userGateway) {
         case 'XPayTech':
-          result = await xpaytech.withdraw(chatId, pending.amount, pixKey, pixKeyType, document);
-          break;
         case 'PodPay':
-          const podpay = require('./src/providers/podpay');
-          const podpayResult = await podpay.createWithdrawal(
-            pixKey,
-            pending.amount,
-            pixKeyType,
-            `podpay_out_${Date.now()}_${chatId}`,
-            `Saque Alpha Bank Pay - ${user.firstName || 'Usuário'}`
-          );
-          if (podpayResult.success) {
-            result = {
-              orderId: podpayResult.data.externalId,
-              success: true,
-              data: podpayResult.data
-            };
-          } else {
-            throw new Error(podpayResult.error || 'Erro na PodPay');
-          }
-          break;
         case 'PagNet':
-          // TODO: Implementar PagNet withdraw quando disponível
-          result = await xpaytech.withdraw(chatId, pending.amount, pixKey, pixKeyType, document);
-          break;
         case 'FluxoPay':
-          // TODO: Implementar FluxoPay withdraw quando disponível
-          result = await xpaytech.withdraw(chatId, pending.amount, pixKey, pixKeyType, document);
-          break;
         default:
           result = await xpaytech.withdraw(chatId, pending.amount, pixKey, pixKeyType, document);
+          break;
       }
 
       completeWithdrawal(withdrawal.txId, result.orderId);
