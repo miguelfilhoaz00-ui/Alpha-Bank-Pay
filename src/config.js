@@ -10,10 +10,10 @@ const CONFIG_FILE = path.join(DATA_DIR, 'providers.json');
 // ==========================
 const DEFAULT_CONFIG = {
   podpay: {
-    label: 'PodPay', min: 100, max: 14999, enabled: true, color: '#f59e0b'
+    label: 'PodPay', min: 100, max: 99999, enabled: true, color: '#f59e0b'
   },
   xpaytech: {
-    label: 'XPayTech', min: 15000, max: 99999, enabled: true, color: '#10b981'
+    label: 'XPayTech', min: 15000, max: 99999, enabled: false, color: '#10b981'
   }
 };
 
