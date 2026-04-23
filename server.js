@@ -1644,86 +1644,107 @@ app.post('/painel/api/users/:chatId/apply-taxa', panelAuth, (req, res) => {
 
 // Transações com filtros e totais
 app.get('/painel/api/transactions', panelAuth, (req, res) => {
-  const { type, status, gateway, period, chatId, limit = 100 } = req.query;
+  try {
+    const { type, status, gateway, period, chatId, limit = 100 } = req.query;
 
-  let whereConditions = [];
-  let params = [];
+    console.log('📊 [Painel] Buscando transações:', { type, status, gateway, period, chatId, limit });
 
-  // Filtro por usuário específico
-  if (chatId) {
-    whereConditions.push('chatId = ?');
-    params.push(chatId);
-  }
+    let whereConditions = [];
+    let params = [];
 
-  // Filtro por tipo
-  if (type) {
-    whereConditions.push('type = ?');
-    params.push(type);
-  }
-
-  // Filtro por status
-  if (status) {
-    whereConditions.push('status = ?');
-    params.push(status);
-  }
-
-  // Filtro por gateway
-  if (gateway) {
-    whereConditions.push('gateway = ?');
-    params.push(gateway);
-  }
-
-  // Filtro por período
-  if (period) {
-    switch (period) {
-      case 'today':
-        whereConditions.push("date(createdAt) = date('now')");
-        break;
-      case 'week':
-        whereConditions.push("createdAt >= datetime('now', '-7 days')");
-        break;
-      case 'month':
-        whereConditions.push("createdAt >= datetime('now', '-30 days')");
-        break;
+    // Filtro por usuário específico
+    if (chatId) {
+      whereConditions.push('t.chatId = ?');
+      params.push(chatId);
     }
+
+    // Filtro por tipo
+    if (type) {
+      whereConditions.push('t.type = ?');
+      params.push(type);
+    }
+
+    // Filtro por status
+    if (status) {
+      whereConditions.push('t.status = ?');
+      params.push(status);
+    }
+
+    // Filtro por gateway
+    if (gateway) {
+      whereConditions.push('t.gateway = ?');
+      params.push(gateway);
+    }
+
+    // Filtro por período
+    if (period) {
+      switch (period) {
+        case 'today':
+          whereConditions.push("date(t.createdAt) = date('now')");
+          break;
+        case 'week':
+          whereConditions.push("t.createdAt >= datetime('now', '-7 days')");
+          break;
+        case 'month':
+          whereConditions.push("t.createdAt >= datetime('now', '-30 days')");
+          break;
+      }
+    }
+
+    const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';
+
+    console.log('🔍 [Painel] Query:', whereClause, params);
+
+    // Buscar transações
+    const transactions = db.prepare(`
+      SELECT t.*, u.firstName, u.username
+      FROM transactions t
+      LEFT JOIN users u ON t.chatId = u.chatId
+      ${whereClause}
+      ORDER BY t.createdAt DESC
+      LIMIT ?
+    `).all(...params, parseInt(limit));
+
+    console.log(`✅ [Painel] Encontradas ${transactions.length} transações`);
+
+    // Se for filtro por usuário específico, não calcular totais gerais
+    if (chatId) {
+      return res.json(transactions);
+    }
+
+    // Calcular totais por categoria (apenas se não for filtro específico por usuário)
+    const totals = {
+      all: db.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM transactions').get().total,
+      deposits: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'deposit' AND status = 'completed'").get().total,
+      withdrawals: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'withdrawal' AND status = 'completed'").get().total,
+      pending: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE status = 'pending'").get().total,
+      completed: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE status = 'completed'").get().total,
+      failed: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE status = 'failed'").get().total,
+      today: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE date(createdAt) = date('now')").get().total,
+      week: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE createdAt >= datetime('now', '-7 days')").get().total,
+      month: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE createdAt >= datetime('now', '-30 days')").get().total
+    };
+
+    // Totais por gateway
+    const gateways = db.prepare("SELECT gateway, COALESCE(SUM(amount), 0) as total FROM transactions WHERE gateway IS NOT NULL GROUP BY gateway").all();
+    gateways.forEach(gw => {
+      totals[`gateway_${gw.gateway}`] = gw.total;
+    });
+
+    res.json({
+      transactions,
+      totals,
+      count: transactions.length
+    });
+
+  } catch (error) {
+    console.error('❌ [Painel] Erro ao buscar transações:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao buscar transações',
+      details: error.message
+    });
   }
-
-  const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';
-
-  // Buscar transações
-  const transactions = db.prepare(`
-    SELECT t.*, u.firstName, u.username
-    FROM transactions t
-    LEFT JOIN users u ON t.chatId = u.chatId
-    ${whereClause}
-    ORDER BY t.createdAt DESC
-    LIMIT ?
-  `).all(...params, parseInt(limit));
-
-  // Calcular totais por categoria
-  const totals = {
-    all: db.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM transactions').get().total,
-    deposits: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'deposit' AND status = 'completed'").get().total,
-    withdrawals: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE type = 'withdrawal' AND status = 'completed'").get().total,
-    pending: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE status = 'pending'").get().total,
-    completed: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE status = 'completed'").get().total,
-    failed: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE status = 'failed'").get().total,
-    today: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE date(createdAt) = date('now')").get().total,
-    week: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE createdAt >= datetime('now', '-7 days')").get().total,
-    month: db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE createdAt >= datetime('now', '-30 days')").get().total
-  };
-
-  // Totais por gateway
-  const gateways = db.prepare("SELECT gateway, COALESCE(SUM(amount), 0) as total FROM transactions WHERE gateway IS NOT NULL GROUP BY gateway").all();
-  gateways.forEach(gw => {
-    totals[`gateway_${gw.gateway}`] = gw.total;
-  });
-
-  res.json({
-    transactions,
-    totals,
-    count: transactions.length
-  });
 });
 
 // ══════════════════════════════════
