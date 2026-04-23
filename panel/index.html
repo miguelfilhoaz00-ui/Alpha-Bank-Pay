@@ -242,9 +242,6 @@ tbody tr:hover td{background:rgba(255,255,255,.02);}
 /* ══ INDICADORES DE GATEWAY ══ */
 .gateway-badge{display:inline-block;background:var(--blue);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;}
 .gateway-badge.xpaytech{background:var(--green);}
-.gateway-badge.pagnet{background:var(--blue);}
-.gateway-badge.fluxopay{background:var(--purple);}
-.gateway-badge.sharkbanking{background:var(--orange);}
 
 /* ══ PAGINAÇÃO ══ */
 .pagination{display:flex;justify-content:center;gap:8px;margin-top:16px;}
@@ -285,7 +282,6 @@ tbody tr:hover td{background:rgba(255,255,255,.02);}
       <button class="nav-item active" onclick="goTo('dashboard',this)"><span class="nav-icon">📊</span> Dashboard</button>
       <button class="nav-item" onclick="goTo('users',this)"><span class="nav-icon">👥</span> Usuários</button>
       <button class="nav-item" onclick="goTo('transactions',this)"><span class="nav-icon">📋</span> Transações</button>
-      <button class="nav-item" onclick="goTo('gateways',this)"><span class="nav-icon">💳</span> Gateways</button>
       <div class="nav-label" style="margin-top:8px;">Controles</div>
       <button class="nav-item" onclick="goTo('pending-transactions',this)"><span class="nav-icon">⏳</span> Pendências</button>
       <button class="nav-item" onclick="goTo('user-controls',this)"><span class="nav-icon">👤</span> Controle de Usuários</button>
@@ -1061,15 +1057,6 @@ function renderUsers(users) {
   });
 }
 
-async function saveUserGw(chatId) {
-  const sel = document.getElementById(`ugw-${chatId}`);
-  const val = sel?.value || null;
-  try {
-    const r = await api('POST', `/painel/api/users/${chatId}/gateway`, { gatewayOverride: val||null });
-    if(r?.success) toast(`✅ Gateway de ${chatId} → ${val||'Automático'}`, 'success');
-    else toast('❌ Erro ao salvar.','error');
-  } catch(e) { toast('❌ Erro ao salvar.','error'); }
-}
 
 async function saveUserFee(chatId) {
   const inp = document.getElementById(`ufee-${chatId}`);
@@ -1857,27 +1844,16 @@ async function configureUser(chatId) {
 
     console.log('🔍 Carregando configurações para:', chatId);
 
-    // Buscar configurações e gateway em paralelo
-    const [settingsResponse, gatewayResponse, gatewaysResponse] = await Promise.all([
-      api('GET', `/painel/api/user/${chatId}/settings`).catch(e => {
-        console.error('Erro settings:', e);
-        return { auto_approve_limit: 1000, daily_limit: 10000, monthly_limit: 50000 };
-      }),
-      api('GET', `/painel/api/user/${chatId}/gateway`).catch(e => {
-        console.error('Erro gateway:', e);
-        return { gateway: 'XPayTech' };
-      }),
-      api('GET', '/painel/api/gateways/available').catch(e => {
-        console.error('Erro gateways:', e);
-        return [
-          { id: 'XPayTech', name: 'XPayTech', active: true },
-          { id: 'PagNet', name: 'PagNet', active: true },
-          { id: 'FluxoPay', name: 'FluxoPay', active: true }
-        ];
-      })
-    ]);
+    // Buscar apenas configurações (gateway fixo em XPayTech)
+    const settingsResponse = await api('GET', `/painel/api/user/${chatId}/settings`).catch(e => {
+      console.error('Erro settings:', e);
+      return { auto_approve_limit: 1000, daily_limit: 10000, monthly_limit: 50000 };
+    });
 
-    console.log('✅ Dados carregados:', { settingsResponse, gatewayResponse, gatewaysResponse });
+    const gatewayResponse = { gateway: 'XPayTech' };
+    const gatewaysResponse = [{ id: 'XPayTech', name: 'XPayTech', active: true }];
+
+    console.log('✅ Dados carregados - Sistema XPayTech exclusivo');
 
     // Mostrar interface de configurações
     showUserSettingsAdvanced(user, settingsResponse, gatewayResponse, gatewaysResponse);
@@ -1925,32 +1901,13 @@ function showUserSettingsAdvanced(user, settings, gateway, gateways) {
       <p style="margin:0 0 20px 0;color:var(--muted);">Saldo atual: R$ ${user.balance.toFixed(2)} | Transações: ${user.transactionCount || 0}</p>
 
       <div class="settings-grid">
-        <!-- Gateway PIX para Depósitos -->
+        <!-- Gateway Fixo -->
         <div class="setting-group">
-          <label class="setting-label">💰 Gateway PIX (Depósitos)</label>
-          <select class="setting-input" id="user-gateway-deposit">
-            <option value="">🔀 Automático</option>
-            ${(gateways || []).map(gw => `
-              <option value="${gw.id}" ${gateway?.gateway === gw.id ? 'selected' : ''}>
-                ${gw.name} ${gw.active ? '✅' : '⚠️'}
-              </option>
-            `).join('')}
-          </select>
-          <small style="color:var(--muted);">Gateway usado para receber depósitos</small>
-        </div>
-
-        <!-- Gateway de Saque -->
-        <div class="setting-group">
-          <label class="setting-label">🏦 Gateway de Saque</label>
-          <select class="setting-input" id="user-gateway-withdrawal">
-            <option value="">🔀 Automático</option>
-            ${(gateways || []).map(gw => `
-              <option value="${gw.id}" ${gateway?.withdrawalGateway === gw.id ? 'selected' : ''}>
-                ${gw.name} ${gw.active ? '✅' : '⚠️'}
-              </option>
-            `).join('')}
-          </select>
-          <small style="color:var(--muted);font-weight:600;color:#fbbf24;">⚠️ Gateway específico para saques PIX deste usuário</small>
+          <label class="setting-label">💳 Gateway de Pagamento</label>
+          <div style="padding:12px;background:var(--card-bg);border-radius:8px;border-left:4px solid var(--green);">
+            <div style="font-weight:600;color:var(--green);">✅ XPayTech</div>
+            <small style="color:var(--muted);">Gateway único para depósitos e saques</small>
+          </div>
         </div>
 
         <!-- Limite de Aprovação Automática -->
@@ -2189,17 +2146,11 @@ async function saveUserSettingsAdvanced(chatId) {
       alert_night_hours: document.getElementById('alert-night').checked
     };
 
-    const gatewayDeposit = document.getElementById('user-gateway-deposit').value;
-    const gatewayWithdrawal = document.getElementById('user-gateway-withdrawal').value;
     const banned = document.getElementById('user-banned').checked;
 
-    // Salvar configurações em paralelo
+    // Salvar configurações (gateway fixo em XPayTech)
     const promises = [
-      api('POST', `/painel/api/user/${chatId}/settings`, settings),
-      api('POST', `/painel/api/users/${chatId}/gateway`, {
-        gatewayOverride: gatewayDeposit || null,
-        withdrawalGateway: gatewayWithdrawal || null
-      })
+      api('POST', `/painel/api/user/${chatId}/settings`, settings)
     ];
 
     // Se status de ban mudou, atualizar
