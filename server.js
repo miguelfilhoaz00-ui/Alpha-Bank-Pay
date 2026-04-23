@@ -1747,6 +1747,35 @@ app.get('/painel/api/transactions', panelAuth, (req, res) => {
   }
 });
 
+// Endpoint específico para histórico de usuários
+app.get('/painel/api/user/:chatId/transactions', panelAuth, (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const { limit = 100 } = req.query;
+
+    console.log(`📋 [Painel] Buscando histórico do usuário: ${chatId}`);
+
+    const transactions = db.prepare(`
+      SELECT * FROM transactions
+      WHERE chatId = ?
+      ORDER BY createdAt DESC
+      LIMIT ?
+    `).all(chatId, parseInt(limit));
+
+    console.log(`✅ [Painel] Encontradas ${transactions.length} transações para ${chatId}`);
+
+    res.json(transactions);
+
+  } catch (error) {
+    console.error('❌ [Painel] Erro ao buscar histórico:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao buscar histórico do usuário',
+      details: error.message
+    });
+  }
+});
+
 // ══════════════════════════════════
 // NOVAS FUNCIONALIDADES DE CONTROLE
 // ══════════════════════════════════

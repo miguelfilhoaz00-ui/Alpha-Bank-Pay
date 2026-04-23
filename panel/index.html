@@ -2040,12 +2040,16 @@ async function viewUserHistory(chatId) {
       return;
     }
 
-    const transactions = await api('GET', `/painel/api/transactions?chatId=${chatId}&limit=100`);
+    console.log('🔍 Carregando histórico para:', chatId);
+
+    const transactions = await api('GET', `/painel/api/user/${chatId}/transactions?limit=100`);
 
     if (!transactions) {
-      toast('Erro ao carregar histórico', 'error');
+      toast('Erro ao carregar histórico do usuário', 'error');
       return;
     }
+
+    console.log('✅ Histórico carregado:', transactions.length, 'transações');
 
     showUserHistoryModal(user, transactions);
 
