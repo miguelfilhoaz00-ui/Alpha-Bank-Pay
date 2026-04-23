@@ -44,9 +44,7 @@ async function setup() {
 
   console.log('\n💳 GATEWAYS OPCIONAIS (Enter para pular)\n');
 
-  const pagnetKey = await question('🟦 PagNet API Key (opcional): ');
-  const fluxopayKey = await question('🟦 FluxoPay API Key (opcional): ');
-  const sharkKey = await question('🟦 SharkBanking API Key (opcional): ');
+  const podpayKey = await question('🟦 PodPay API Key (opcional): ');
 
   const envContent = `# ══════════════════════════════════
 # ALPHA BANK PAY - AUTO-GENERATED
@@ -69,11 +67,8 @@ PORT=3000
 NODE_ENV=production
 
 # ── OUTROS GATEWAYS ──
-${pagnetKey ? `PAGNET_PUBLIC_KEY=${pagnetKey}` : '# PAGNET_PUBLIC_KEY='}
-${pagnetKey ? `PAGNET_POSTBACK_URL=${appUrl}/webhook/pagnet` : '# PAGNET_POSTBACK_URL='}
-${fluxopayKey ? `FLUXOPAY_API_KEY=${fluxopayKey}` : '# FLUXOPAY_API_KEY='}
-${sharkKey ? `SHARKBANKING_PUBLIC_KEY=${sharkKey}` : '# SHARKBANKING_PUBLIC_KEY='}
-${sharkKey ? `SHARKBANKING_POSTBACK_URL=${appUrl}/webhook/sharkbanking` : '# SHARKBANKING_POSTBACK_URL='}
+${podpayKey ? `PODPAY_API_KEY=${podpayKey}` : '# PODPAY_API_KEY='}
+${podpayKey ? `PODPAY_POSTBACK_URL=${appUrl}/webhook/podpay` : '# PODPAY_POSTBACK_URL='}
 
 # ── SEGURANÇA ──
 JWT_SECRET=${generateRandomString(32)}

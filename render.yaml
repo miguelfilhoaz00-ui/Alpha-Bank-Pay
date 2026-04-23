@@ -22,28 +22,6 @@ services:
       - key: PANEL_PASSWORD
         sync: false
 
-      # ——— PagNet ———
-      - key: PAGNET_PUBLIC_KEY
-        sync: false
-      - key: PAGNET_SECRET_KEY
-        sync: false
-      - key: PAGNET_POSTBACK_URL
-        sync: false
-
-      # ——— SharkBanking ———
-      - key: SHARKBANKING_PUBLIC_KEY
-        sync: false
-      - key: SHARKBANKING_SECRET_KEY
-        sync: false
-      - key: SHARKBANKING_POSTBACK_URL
-        sync: false
-
-      # ——— FluxoPay ———
-      - key: FLUXOPAY_API_KEY
-        sync: false
-      - key: FLUXOPAY_API_SECRET
-        sync: false
-
       # ——— PodPay ———
       - key: PODPAY_API_KEY
         sync: false

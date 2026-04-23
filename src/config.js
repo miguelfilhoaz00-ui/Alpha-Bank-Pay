@@ -9,20 +9,11 @@ const CONFIG_FILE = path.join(DATA_DIR, 'providers.json');
 // CONFIGURAÇÃO PADRÃO
 // ==========================
 const DEFAULT_CONFIG = {
-  pagnet: {
-    label: 'PagNet', min: 100, max: 1999, enabled: true, color: '#3b82f6'
-  },
-  fluxopay: {
-    label: 'FluxoPay', min: 5001, max: 14999, enabled: true, color: '#8b5cf6'
-  },
   podpay: {
-    label: 'PodPay', min: 5001, max: 14999, enabled: false, color: '#f59e0b'
-  },
-  sharkbanking: {
-    label: 'SharkBanking', min: 2000, max: 4000, enabled: true, color: '#06b6d4'
+    label: 'PodPay', min: 100, max: 14999, enabled: true, color: '#f59e0b'
   },
   xpaytech: {
-    label: 'XPayTech', min: 15000, max: 99999, enabled: false, color: '#10b981'
+    label: 'XPayTech', min: 15000, max: 99999, enabled: true, color: '#10b981'
   }
 };
 

@@ -48,11 +48,8 @@ PORT=3000
 NODE_ENV=production
 
 # ── OUTROS GATEWAYS (Opcionais) ──
-PAGNET_PUBLIC_KEY=token_pagnet
-PAGNET_SECRET_KEY=secret_pagnet
-FLUXOPAY_API_KEY=token_fluxopay
-SHARKBANKING_PUBLIC_KEY=token_shark
-SHARKBANKING_SECRET_KEY=secret_shark
+PODPAY_API_KEY=token_podpay
+PODPAY_POSTBACK_URL=https://alpha-bank-pay.onrender.com/webhook/podpay
 ```
 
 ### 5. Deploy!
@@ -160,8 +157,7 @@ O sistema já inclui:
 
 ### 1. Configurar Webhooks dos Gateways
 - **XPayTech**: Configurar URL no painel XPay
-- **PagNet**: Adicionar webhook no dashboard PagNet
-- **FluxoPay**: Configurar notification URL
+- **PodPay**: Adicionar webhook no dashboard PodPay
 
 ### 2. Personalizar Sistema
 - **Logo**: Substitua emoji 🏦 no código

@@ -24,7 +24,7 @@ Sistema completo de pagamentos PIX via Telegram com painel administrativo profis
 - **Sistema de Aprovações**: Automático ou manual por valor/perfil
 - **Rate Limiting**: Proteção contra spam e ataques
 - **Auditoria Total**: Rastreamento completo para compliance
-- **Múltiplos Gateways**: XPayTech, PagNet, FluxoPay, SharkBanking, PodPay
+- **Múltiplos Gateways**: XPayTech, PodPay
 
 ## 🚀 Deploy Rápido
 
@@ -49,9 +49,6 @@ XPAYTECH_PASSWORD=sua_senha
 XPAYTECH_WEBHOOK_URL=https://seuapp.onrender.com/webhook/xpaytech
 
 # Outros Gateways (Opcionais)
-PAGNET_TOKEN=token_pagnet
-FLUXOPAY_TOKEN=token_fluxopay
-SHARKBANKING_TOKEN=token_sharkbanking
 PODPAY_TOKEN=token_podpay
 
 # Configurações
