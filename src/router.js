@@ -3,10 +3,6 @@ const { getUser } = require('./users');
 
 // Mapa de módulos disponíveis
 const MODULES = {
-  pagnet:       require('./providers/pagnet'),
-  fluxopay:     require('./providers/fluxopay'),
-  podpay:       require('./providers/podpay'),
-  sharkbanking: require('./providers/sharkbanking'),
   xpaytech:     require('./providers/xpaytech')
 };
 

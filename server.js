@@ -1045,9 +1045,6 @@ clientBot.on('callback_query', async (query) => {
       // Usar gateway específico do usuário - REVERTIDO PARA FUNCIONAMENTO ORIGINAL
       switch (userGateway) {
         case 'XPayTech':
-        case 'PodPay':
-        case 'PagNet':
-        case 'FluxoPay':
         default:
           result = await xpaytech.withdraw(chatId, pending.amount, pixKey, pixKeyType, document);
           break;
@@ -2034,7 +2031,7 @@ app.post('/painel/api/user/:chatId/set-gateway', panelAuth, (req, res) => {
   const { chatId } = req.params;
   const { gateway } = req.body;
 
-  const validGateways = ['XPayTech', 'PagNet', 'FluxoPay', 'SharkBanking', 'PodPay'];
+  const validGateways = ['XPayTech'];
 
   if (!validGateways.includes(gateway)) {
     return res.status(400).json({ error: 'Gateway inválido' });
@@ -2079,11 +2076,7 @@ app.get('/painel/api/user/:chatId/gateway', panelAuth, (req, res) => {
 // Listar gateways disponíveis
 app.get('/painel/api/gateways/available', panelAuth, (req, res) => {
   const gateways = [
-    { id: 'XPayTech', name: 'XPayTech', active: true },
-    { id: 'PagNet', name: 'PagNet', active: true },
-    { id: 'FluxoPay', name: 'FluxoPay', active: true },
-    { id: 'SharkBanking', name: 'SharkBanking', active: true },
-    { id: 'PodPay', name: 'PodPay', active: true }
+    { id: 'XPayTech', name: 'XPayTech', active: true }
   ];
 
   res.json(gateways);
@@ -2191,31 +2184,7 @@ app.get('/painel/api/dashboard', panelAuth, (req, res) => {
 // WEBHOOKS DE PAGAMENTO
 // ══════════════════════════════════
 
-app.post('/webhook/pagnet', (req, res) => {
-  console.log('📥 [PagNet] Postback:', JSON.stringify(req.body));
-  try {
-    const { externalRef, status } = req.body;
-    if (status === 'paid' || status === 'approved')     _notifyPayment(externalRef);
-    if (status === 'refused' || status === 'cancelled') _notifyFailed(externalRef);
-  } catch (e) { console.error('[PagNet] Erro:', e.message); }
-  res.sendStatus(200);
-});
 
-app.post('/webhook/fluxopay', (req, res) => {
-  console.log('📥 [FluxoPay] Webhook:', JSON.stringify(req.body));
-  try {
-    const { event, data } = req.body;
-    if (event === 'pix_in.completed') {
-      _notifyPayment(data.orderId, {
-        pagador: data.payer?.name || null,
-        cpf:     data.payer?.document || null,
-        txId:    data.idTransaction,
-        paidAt:  data.paidAt
-      });
-    }
-  } catch (e) { console.error('[FluxoPay] Erro:', e.message); }
-  res.sendStatus(200);
-});
 
 app.post('/webhook/podpay', (req, res) => {
   console.log('📥 [PodPay] Webhook:', JSON.stringify(req.body));
@@ -2249,15 +2218,6 @@ app.post('/webhook/podpay', (req, res) => {
   res.sendStatus(200);
 });
 
-app.post('/webhook/sharkbanking', (req, res) => {
-  console.log('📥 [SharkBanking] Postback:', JSON.stringify(req.body));
-  try {
-    const { externalRef, status } = req.body;
-    if (status === 'paid' || status === 'approved')     _notifyPayment(externalRef);
-    if (status === 'refused' || status === 'cancelled') _notifyFailed(externalRef);
-  } catch (e) { console.error('[SharkBanking] Erro:', e.message); }
-  res.sendStatus(200);
-});
 
 app.post('/webhook/xpaytech', (req, res) => {
   console.log('📥 [XPayTech] Webhook:', JSON.stringify(req.body));
