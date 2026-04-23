@@ -16,8 +16,8 @@ const xpaytech                                            = require('./src/provi
 // ==========================
 // BOTS
 // ==========================
-const clientBot = new TelegramBot(process.env.CLIENT_BOT_TOKEN, { polling: false });
-const adminBot  = new TelegramBot(process.env.ADMIN_BOT_TOKEN,  { polling: false });
+const clientBot = new TelegramBot(process.env.CLIENT_BOT_TOKEN, { polling: true });
+const adminBot  = new TelegramBot(process.env.ADMIN_BOT_TOKEN,  { polling: true });
 
 const ADMIN_CHAT_ID  = process.env.ADMIN_CHAT_ID;
 const PANEL_PASSWORD = process.env.PANEL_PASSWORD;
