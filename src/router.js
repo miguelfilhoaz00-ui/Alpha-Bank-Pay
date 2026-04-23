@@ -3,7 +3,8 @@ const { getUser } = require('./users');
 
 // Mapa de módulos disponíveis
 const MODULES = {
-  xpaytech:     require('./providers/xpaytech')
+  xpaytech:     require('./providers/xpaytech'),
+  podpay:       require('./providers/podpay')
 };
 
 /**

@@ -1045,6 +1045,19 @@ clientBot.on('callback_query', async (query) => {
       // Usar gateway específico do usuário - REVERTIDO PARA FUNCIONAMENTO ORIGINAL
       switch (userGateway) {
         case 'XPayTech':
+          result = await xpaytech.withdraw(chatId, pending.amount, pixKey, pixKeyType, document);
+          break;
+
+        case 'PodPay':
+          const podpay = require('./src/providers/podpay');
+          const podpayResult = await podpay.createWithdrawal(pixKey, pending.amount, pixKeyType, withdrawal.txId);
+          if (podpayResult.success) {
+            result = { orderId: podpayResult.data.orderId, id: podpayResult.data.id };
+          } else {
+            throw new Error(podpayResult.error);
+          }
+          break;
+
         default:
           result = await xpaytech.withdraw(chatId, pending.amount, pixKey, pixKeyType, document);
           break;
@@ -2031,7 +2044,7 @@ app.post('/painel/api/user/:chatId/set-gateway', panelAuth, (req, res) => {
   const { chatId } = req.params;
   const { gateway } = req.body;
 
-  const validGateways = ['XPayTech'];
+  const validGateways = ['XPayTech', 'PodPay'];
 
   if (!validGateways.includes(gateway)) {
     return res.status(400).json({ error: 'Gateway inválido' });
@@ -2073,13 +2086,48 @@ app.get('/painel/api/user/:chatId/gateway', panelAuth, (req, res) => {
   }
 });
 
+// Configuração de gateway do usuário
+app.post('/painel/api/users/:chatId/gateway', panelAuth, (req, res) => {
+  const user = getUser(req.params.chatId);
+  if (!user) return res.status(404).json({ success: false, error: 'Usuário não encontrado.' });
+
+  const { gatewayOverride } = req.body;
+
+  // Atualizar gateway de depósito
+  const updated = setGatewayOverride(req.params.chatId, gatewayOverride || null);
+
+  console.log(`🎛️  [Painel] Gateway do chatId ${req.params.chatId} → ${gatewayOverride || 'auto'}`);
+  res.json({ success: true, user: updated });
+});
+
 // Listar gateways disponíveis
 app.get('/painel/api/gateways/available', panelAuth, (req, res) => {
   const gateways = [
-    { id: 'XPayTech', name: 'XPayTech', active: true }
+    { id: 'XPayTech', name: 'XPayTech', active: true },
+    { id: 'PodPay', name: 'PodPay', active: true }
   ];
 
   res.json(gateways);
+});
+
+// Obter gateway preferido do usuário
+app.get('/painel/api/user/:chatId/gateway', panelAuth, (req, res) => {
+  const { chatId } = req.params;
+
+  try {
+    const user = getUser(chatId);
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    res.json({
+      gateway: user.gatewayOverride || 'auto'
+    });
+  } catch (error) {
+    console.error('Erro ao buscar gateway:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
 });
 
 // Bloquear/desbloquear saques de usuário
@@ -2218,6 +2266,22 @@ app.post('/webhook/podpay', (req, res) => {
   res.sendStatus(200);
 });
 
+
+app.post('/webhook/podpay', (req, res) => {
+  console.log('📥 [PodPay] Webhook:', JSON.stringify(req.body));
+  try {
+    const { event, data } = req.body;
+
+    // Processar depósitos
+    if (event === 'transaction.paid' && data?.status === 'PAID') {
+      _notifyPayment(`podpay_${data.id}`, { txId: data.id, paidAt: data.paidAt });
+    }
+
+  } catch (e) {
+    console.error('❌ [PodPay] Erro no webhook:', e.message);
+  }
+  res.sendStatus(200);
+});
 
 app.post('/webhook/xpaytech', (req, res) => {
   console.log('📥 [XPayTech] Webhook:', JSON.stringify(req.body));
