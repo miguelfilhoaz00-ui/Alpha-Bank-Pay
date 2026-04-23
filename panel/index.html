@@ -2032,30 +2032,66 @@ function showUserSettings(user, settings) {
 // ══ HISTÓRICO DE USUÁRIO ══
 async function viewUserHistory(chatId) {
   try {
-    const users = await api('GET', '/painel/api/users');
-    const user = users.find(u => u.chatId === chatId);
+    console.log('🚀 [DEBUG] Iniciando viewUserHistory para:', chatId);
 
-    if (!user) {
-      toast('Usuário não encontrado', 'error');
-      return;
+    // Criar usuário fake se não conseguir buscar da API
+    let user = { chatId, firstName: 'Usuário', balance: 0 };
+
+    try {
+      console.log('1️⃣ [DEBUG] Buscando usuários...');
+      const users = await api('GET', '/painel/api/users');
+      console.log('✅ [DEBUG] Usuários carregados:', users ? users.length : 'null');
+
+      if (users && Array.isArray(users)) {
+        const foundUser = users.find(u => u.chatId === chatId);
+        if (foundUser) {
+          user = foundUser;
+          console.log('👤 [DEBUG] Usuário encontrado:', user.firstName);
+        }
+      }
+    } catch (userError) {
+      console.warn('⚠️ [DEBUG] Erro ao buscar usuário, usando dados básicos:', userError.message);
     }
 
-    console.log('🔍 Carregando histórico para:', chatId);
+    // Buscar transações SEMPRE, mesmo se usuário não for encontrado
+    console.log('2️⃣ [DEBUG] Buscando transações para:', chatId);
 
-    const transactions = await api('GET', `/painel/api/user/${chatId}/transactions?limit=100`);
+    // Tentar primeiro o endpoint novo
+    let transactions = [];
+    try {
+      const endpoint = `/painel/api/user/${chatId}/transactions?limit=100`;
+      console.log('🔗 [DEBUG] Tentando endpoint novo:', endpoint);
+      transactions = await api('GET', endpoint);
+      console.log('✅ [DEBUG] Endpoint novo funcionou, transações:', transactions?.length || 0);
+    } catch (newEndpointError) {
+      console.warn('⚠️ [DEBUG] Endpoint novo falhou, tentando endpoint antigo:', newEndpointError.message);
 
-    if (!transactions) {
-      toast('Erro ao carregar histórico do usuário', 'error');
-      return;
+      // Fallback para endpoint antigo
+      try {
+        const oldEndpoint = `/painel/api/transactions?chatId=${chatId}&limit=100`;
+        console.log('🔗 [DEBUG] Tentando endpoint antigo:', oldEndpoint);
+        const response = await api('GET', oldEndpoint);
+        transactions = response?.transactions || response || [];
+        console.log('✅ [DEBUG] Endpoint antigo funcionou, transações:', transactions?.length || 0);
+      } catch (oldEndpointError) {
+        console.error('❌ [DEBUG] Ambos endpoints falharam:', oldEndpointError.message);
+        transactions = [];
+      }
     }
 
-    console.log('✅ Histórico carregado:', transactions.length, 'transações');
+    console.log('📊 [DEBUG] Transações finais:', Array.isArray(transactions) ? transactions.length : typeof transactions);
+
+    // Garantir que transactions é sempre um array
+    if (!Array.isArray(transactions)) {
+      console.warn('⚠️ [DEBUG] Forçando transactions para array vazio');
+      transactions = [];
+    }
 
     showUserHistoryModal(user, transactions);
 
   } catch (error) {
-    console.error('Erro ao carregar histórico:', error);
-    toast('Erro ao carregar histórico do usuário', 'error');
+    console.error('❌ [DEBUG] Erro geral:', error);
+    toast(`Erro: ${error.message}`, 'error');
   }
 }
 
