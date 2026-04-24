@@ -2727,3 +2727,4 @@ configReady.then(() => {
 
 process.on('unhandledRejection', (reason) => { console.error('⚠️  [unhandledRejection]', reason?.message || reason); });
 process.on('uncaughtException',  (err)    => { console.error('⚠️  [uncaughtException]',  err?.message || err); });
+// Force redeploy Thu Apr 23 22:19:12 ESAST 2026
