@@ -1764,28 +1764,40 @@ app.get('/painel/api/user/:chatId/transactions', panelAuth, (req, res) => {
 
 // Listar transações pendentes de aprovação
 app.get('/painel/api/transactions/pending', panelAuth, (req, res) => {
-  const pending = db.prepare(`
-    SELECT tc.*, u.firstName, u.username
-    FROM transaction_controls tc
-    JOIN users u ON tc.chatId = u.chatId
-    WHERE tc.status = 'pending'
-    ORDER BY tc.created_at DESC
-  `).all();
+  try {
+    const pending = db.prepare(`
+      SELECT tc.*, u.firstName, u.username
+      FROM transaction_controls tc
+      JOIN users u ON tc.chatId = u.chatId
+      WHERE tc.status = 'pending'
+      ORDER BY tc.created_at DESC
+    `).all();
 
-  res.json(pending);
+    console.log(`📋 [Painel] Transações pendentes encontradas: ${pending.length}`);
+    res.json(pending);
+  } catch (error) {
+    console.error('❌ [Painel] Erro ao buscar transações pendentes:', error.message);
+    res.status(500).json({ error: 'Erro ao buscar transações pendentes: ' + error.message });
+  }
 });
 
 // Listar bloqueios cautelares ativos
 app.get('/painel/api/transactions/cautionary', panelAuth, (req, res) => {
-  const cautionary = db.prepare(`
-    SELECT tc.*, u.firstName, u.username
-    FROM transaction_controls tc
-    JOIN users u ON tc.chatId = u.chatId
-    WHERE tc.status = 'cautionary' AND tc.cautionary_until > datetime('now')
-    ORDER BY tc.created_at DESC
-  `).all();
+  try {
+    const cautionary = db.prepare(`
+      SELECT tc.*, u.firstName, u.username
+      FROM transaction_controls tc
+      JOIN users u ON tc.chatId = u.chatId
+      WHERE tc.status = 'cautionary' AND tc.cautionary_until > datetime('now')
+      ORDER BY tc.created_at DESC
+    `).all();
 
-  res.json(cautionary);
+    console.log(`🔒 [Painel] Bloqueios cautelares ativos: ${cautionary.length}`);
+    res.json(cautionary);
+  } catch (error) {
+    console.error('❌ [Painel] Erro ao buscar bloqueios cautelares:', error.message);
+    res.status(500).json({ error: 'Erro ao buscar bloqueios cautelares: ' + error.message });
+  }
 });
 
 // Aprovar transação
