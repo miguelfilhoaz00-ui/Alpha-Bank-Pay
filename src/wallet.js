@@ -107,7 +107,10 @@ function completeDeposit(orderId) {
 // Debita saldo antes de enviar para a API
 // ==========================
 // Nova função que verifica se precisa aprovação antes de debitar
-function createWithdrawalTxWithApproval(chatId, amount, pixKey, gateway = 'XPayTech') {
+function createWithdrawalTxWithApproval(chatId, amount, pixKey, gateway = null) {
+  // Se gateway não especificado, usar lógica FIFO
+  const targetGateway = gateway || getGatewayForWithdrawal(chatId, amount);
+
   // Importar função de verificação do server.js
   const needsApproval = require('./server').checkTransactionNeedsApproval;
 
@@ -117,40 +120,85 @@ function createWithdrawalTxWithApproval(chatId, amount, pixKey, gateway = 'XPayT
     const transactionId = generateTransactionId();
 
     const result = db.prepare(`
-      INSERT INTO transaction_controls (transactionId, chatId, amount, pixKey, status)
-      VALUES (?, ?, ?, ?, 'pending')
-    `).run(transactionId, chatId, amount, pixKey);
+      INSERT INTO transaction_controls (transactionId, chatId, amount, pixKey, status, gateway)
+      VALUES (?, ?, ?, ?, 'pending', ?)
+    `).run(transactionId, chatId, amount, pixKey, targetGateway);
 
-    console.log(`⏳ [Wallet] Saque enviado para aprovação | chatId: ${chatId} | R$${amount.toFixed(2)} | ID: ${transactionId}`);
+    console.log(`⏳ [Wallet] Saque FIFO enviado para aprovação | chatId: ${chatId} | R$${amount.toFixed(2)} | Gateway: ${targetGateway} | ID: ${transactionId}`);
 
     return {
       needsApproval: true,
       controlId: result.lastInsertRowid,
-      transactionId
+      transactionId,
+      gateway: targetGateway
     };
   }
 
-  // Aprovação automática - usar função original
-  return createWithdrawalTx(chatId, amount, gateway);
+  // Aprovação automática com FIFO
+  return createWithdrawalTx(chatId, amount, targetGateway);
 }
 
-// Função original (mantida para compatibilidade)
-function createWithdrawalTx(chatId, amount, gateway = 'XPayTech') {
+// Função original com LÓGICA FIFO AUTOMÁTICA
+function createWithdrawalTx(chatId, amount, gateway = null) {
+  // Se gateway não especificado, usar lógica FIFO
+  const targetGateway = gateway || getGatewayForWithdrawal(chatId, amount);
+
   const user = debitBalance(chatId, amount);
   if (!user) return null;
 
   const result = db.prepare(`
     INSERT INTO transactions (chatId, type, amount, gateway, status)
     VALUES (?, 'withdrawal', ?, ?, 'pending')
-  `).run(String(chatId), amount, gateway);
+  `).run(String(chatId), amount, targetGateway);
 
-  console.log(`💸 [Wallet] Saque iniciado | chatId: ${chatId} | R$${amount.toFixed(2)} | Saldo restante: R$${user.balance.toFixed(2)}`);
-  return { txId: result.lastInsertRowid, user };
+  console.log(`💸 [Wallet] Saque FIFO | chatId: ${chatId} | R$${amount.toFixed(2)} | Gateway: ${targetGateway} | Saldo restante: R$${user.balance.toFixed(2)}`);
+  return { txId: result.lastInsertRowid, user, gateway: targetGateway };
 }
 
 // Gerar ID único para transação (mover aqui se não existir)
 function generateTransactionId() {
   return `tx_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
+}
+
+// ==========================
+// LÓGICA FIFO - DETERMINAR GATEWAY PARA SAQUE
+// ==========================
+function getGatewayForWithdrawal(chatId, withdrawalAmount) {
+  // Buscar todos os depósitos concluídos, ordenados por data (FIFO)
+  const deposits = db.prepare(`
+    SELECT amount, gateway, completedAt
+    FROM transactions
+    WHERE chatId = ? AND type = 'deposit' AND status = 'completed'
+    ORDER BY completedAt ASC
+  `).all(String(chatId));
+
+  // Buscar total já sacado
+  const totalWithdrawn = db.prepare(`
+    SELECT COALESCE(SUM(amount), 0) as total
+    FROM transactions
+    WHERE chatId = ? AND type = 'withdrawal' AND status = 'completed'
+  `).get(String(chatId))?.total || 0;
+
+  console.log(`🔍 [FIFO] ChatId: ${chatId} | Total depositado: ${deposits.length} transações | Total sacado: R$${totalWithdrawn.toFixed(2)}`);
+
+  // Simular qual gateway deve ser usado aplicando FIFO
+  let remainingToWithdraw = totalWithdrawn + withdrawalAmount;
+  let targetGateway = 'XPayTech'; // fallback
+
+  for (const deposit of deposits) {
+    console.log(`💰 [FIFO] Depósito: R$${deposit.amount.toFixed(2)} via ${deposit.gateway} em ${deposit.completedAt}`);
+
+    if (remainingToWithdraw <= deposit.amount) {
+      // O saque sairá deste depósito
+      targetGateway = deposit.gateway;
+      console.log(`✅ [FIFO] Saque via ${targetGateway} (R$${withdrawalAmount.toFixed(2)})`);
+      break;
+    }
+
+    remainingToWithdraw -= deposit.amount;
+  }
+
+  return targetGateway;
 }
 
 // ==========================
@@ -239,4 +287,5 @@ module.exports = {
   getUserTransactions,
   getAllTransactions,
   generateTransactionId,
+  getGatewayForWithdrawal,
 };

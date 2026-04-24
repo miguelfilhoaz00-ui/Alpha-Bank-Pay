@@ -57,6 +57,7 @@ db.exec(`
     amount REAL,
     pixKey TEXT,
     status TEXT DEFAULT 'pending',
+    gateway TEXT DEFAULT 'XPayTech',
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     admin_action_at TEXT NULL,
     admin_notes TEXT,
@@ -132,6 +133,7 @@ const migrations = [
   `ALTER TABLE transactions ADD COLUMN fee        REAL DEFAULT 0`,
   `ALTER TABLE transactions ADD COLUMN fromChatId TEXT DEFAULT NULL`,
   `ALTER TABLE transactions ADD COLUMN metadata    TEXT DEFAULT NULL`,
+  `ALTER TABLE transaction_controls ADD COLUMN gateway TEXT DEFAULT 'XPayTech'`,
 ];
 for (const sql of migrations) {
   try { db.exec(sql); } catch (e) { /* coluna já existe — ignorar */ }

@@ -1024,11 +1024,8 @@ clientBot.on('callback_query', async (query) => {
       return;
     }
 
-    // Obter gateway preferido do usuário
-    const userGateway = user.preferred_gateway || 'XPayTech';
-
-    // Aprovação automática - processar imediatamente
-    const withdrawal = createWithdrawalTx(chatId, pending.amount, userGateway);
+    // Aprovação automática - processar imediatamente (FIFO automático)
+    const withdrawal = createWithdrawalTx(chatId, pending.amount);
     if (!withdrawal) {
       return clientBot.sendMessage(
         chatId, `❌ *Saldo insuficiente.* Use /saldo para verificar.`, { parse_mode: 'Markdown' }
@@ -1042,8 +1039,8 @@ clientBot.on('callback_query', async (query) => {
 
       let result;
 
-      // Usar gateway específico do usuário - REVERTIDO PARA FUNCIONAMENTO ORIGINAL
-      switch (userGateway) {
+      // Usar gateway determinado automaticamente pela lógica FIFO
+      switch (withdrawal.gateway) {
         case 'XPayTech':
           result = await xpaytech.withdraw(chatId, pending.amount, pixKey, pixKeyType, document);
           break;
@@ -2591,8 +2588,8 @@ function generateTransactionId() {
 // Processar saque imediatamente (para aprovações)
 async function processWithdrawalNow(chatId, amount, pixKey) {
   try {
-    // Usar a função existente de saque
-    const result = await createWithdrawalTx(chatId, amount, pixKey);
+    // Usar a função existente de saque (FIFO automático)
+    const result = createWithdrawalTx(chatId, amount);
     return result !== null;
   } catch (error) {
     console.error('Erro ao processar saque:', error);
