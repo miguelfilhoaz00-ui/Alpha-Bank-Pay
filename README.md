@@ -24,7 +24,7 @@ Sistema completo de pagamentos PIX via Telegram com painel administrativo profis
 - **Sistema de Aprovações**: Automático ou manual por valor/perfil
 - **Rate Limiting**: Proteção contra spam e ataques
 - **Auditoria Total**: Rastreamento completo para compliance
-- **Gateway PIX**: PodPay
+- **Gateways PIX**: PodPay (depósitos) + VeoPag (saques)
 
 ## 🚀 Deploy Rápido
 
@@ -43,9 +43,15 @@ CLIENT_BOT_TOKEN=seu_token_do_bot_cliente
 ADMIN_BOT_TOKEN=seu_token_do_bot_admin
 ADMIN_CHAT_ID=seu_chat_id_admin
 
-# PodPay (Gateway Único)
+# PodPay (Depósitos)
 PODPAY_API_KEY=sua_api_key_podpay
 PODPAY_POSTBACK_URL=https://seuapp.onrender.com/webhook/podpay
+
+# VeoPag (Saques)
+VEOPAG_CLIENT_ID=seu_client_id
+VEOPAG_CLIENT_SECRET=seu_client_secret
+VEOPAG_WEBHOOK_URL=https://seuapp.onrender.com/webhook/veopag
+VEOPAG_WEBHOOK_SIGNATURE=opcional_segredo_estatico
 
 # Configurações
 APP_URL=https://seuapp.onrender.com

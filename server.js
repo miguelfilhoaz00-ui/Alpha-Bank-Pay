@@ -12,6 +12,7 @@ const stats                                               = require('./src/stats
 const { getUser, getUserByReferralCode, upsertUser, setPixKey, setGatewayOverride, setBanned, setDepositFee, setCommissionRate, setReferralFee, setReferredBy, getAllUsers, getAffiliates, getManagers, setReferrer } = require('./src/users');
 const { createDepositTx, completeDeposit, createWithdrawalTx, completeWithdrawal, failWithdrawal, adminAdjust, getUserTransactions, getAllTransactions } = require('./src/wallet');
 const podpay                                              = require('./src/providers/podpay');
+const veopag                                              = require('./src/providers/veopag');
 
 // ==========================
 // BOTS
@@ -1039,12 +1040,15 @@ clientBot.on('callback_query', async (query) => {
 
       let result;
 
-      // Processar saque via PodPay (gateway único)
-      const podpayResult = await podpay.createWithdrawal(pixKey, pending.amount, pixKeyType, withdrawal.txId);
-      if (podpayResult.success) {
-        result = { orderId: podpayResult.data.orderId, id: podpayResult.data.id };
+      // Processar saque via VeoPag (gateway de saques)
+      const veopagResult = await veopag.createWithdrawal(pixKey, pending.amount, pixKeyType, withdrawal.txId, {
+        taxId: document,
+        name:  user.firstName || undefined
+      });
+      if (veopagResult.success) {
+        result = { orderId: veopagResult.data.orderId, id: veopagResult.data.id };
       } else {
-        throw new Error(podpayResult.error);
+        throw new Error(veopagResult.error);
       }
 
       completeWithdrawal(withdrawal.txId, result.orderId);
@@ -1071,7 +1075,7 @@ clientBot.on('callback_query', async (query) => {
       ).catch(() => {});
 
     } catch (err) {
-      console.error('❌ [Saque] Erro PodPay:', err.response?.data || err.message);
+      console.error('❌ [Saque] Erro VeoPag:', err.response?.data || err.message);
       failWithdrawal(withdrawal.txId); // estorna saldo automaticamente
 
       clientBot.editMessageText(
@@ -2279,6 +2283,42 @@ app.post('/webhook/podpay', (req, res) => {
 });
 
 // ══════════════════════════════════
+// WEBHOOK VEOPAG (saques)
+// ══════════════════════════════════
+app.post('/webhook/veopag', (req, res) => {
+  console.log('📥 [VeoPag] Webhook:', JSON.stringify(req.body));
+  try {
+    // Validação opcional de signature estática
+    const expected = process.env.VEOPAG_WEBHOOK_SIGNATURE;
+    if (expected) {
+      const received = req.headers['x-webhook-signature'];
+      if (!received || expected !== received) {
+        console.warn('⚠️ [VeoPag] X-Webhook-Signature inválida');
+        return res.sendStatus(401);
+      }
+    }
+
+    const body = req.body || {};
+    const { type, transaction_id, status, error_message } = body;
+
+    if (type !== 'Withdrawal') {
+      // Depósitos não devem chegar aqui (depósitos são pela PodPay)
+      return res.sendStatus(200);
+    }
+
+    if (status === 'COMPLETED') {
+      _notifyWithdrawalSuccessVeo(transaction_id, body);
+    } else if (status === 'FAILED' || status === 'REFUNDED' || status === 'PARTIALLY_REFUNDED') {
+      _notifyWithdrawalFailureVeo(transaction_id, body);
+    }
+    // PENDING / QUEUE / PROCESSING — ignorar
+  } catch (e) {
+    console.error('❌ [VeoPag] Erro no webhook:', e.message);
+  }
+  res.sendStatus(200);
+});
+
+// ══════════════════════════════════
 // HELPERS DE NOTIFICAÇÃO
 // ══════════════════════════════════
 
@@ -2387,6 +2427,90 @@ function _notifyWithdrawalFailure(externalId, data) {
 
   } catch (error) {
     console.error('❌ [PodPay] Erro ao notificar falha:', error.message);
+  }
+}
+
+// ==========================
+// NOTIFICAÇÕES DE SAQUE — VEOPAG
+// Lookup pela coluna orderId (que guarda o externalId veo_out_*)
+// ==========================
+function _findVeoTx(externalId, transactionId) {
+  return db.prepare(`
+    SELECT * FROM transactions
+    WHERE type = 'withdrawal'
+      AND status = 'pending'
+      AND (orderId = ? OR orderId LIKE ? OR metadata LIKE ?)
+    ORDER BY id DESC LIMIT 1
+  `).get(externalId || '', `%${transactionId || ''}%`, `%${transactionId || ''}%`);
+}
+
+function _notifyWithdrawalSuccessVeo(transactionId, data = {}) {
+  try {
+    console.log(`✅ [VeoPag] Saque concluído: ${transactionId}`);
+
+    // No nosso fluxo já chamamos completeWithdrawal logo após o POST.
+    // Este webhook serve para confirmar e notificar admin/cliente sobre o estado final.
+    const tx = db.prepare(`
+      SELECT * FROM transactions
+      WHERE type = 'withdrawal' AND orderId LIKE ?
+      ORDER BY id DESC LIMIT 1
+    `).get(`veo_out_%`);
+
+    const user = tx ? getUser(tx.chatId) : null;
+    const amount = data.amount ?? tx?.amount ?? 0;
+
+    if (tx && user) {
+      adminBot.sendMessage(ADMIN_CHAT_ID,
+        `✅ *SAQUE VEOPAG CONFIRMADO*\n` +
+        `👤 *Usuário:* ${user.firstName || tx.chatId}\n` +
+        `💰 *Valor:* R$ ${Number(amount).toFixed(2)}\n` +
+        `🆔 *TxId:* ${transactionId}\n` +
+        `🔁 *E2E:* ${data.end_to_end_id || '-'}\n` +
+        `📅 ${nowBR()}`,
+        { parse_mode: 'Markdown' }
+      ).catch(() => {});
+    }
+  } catch (error) {
+    console.error('❌ [VeoPag] Erro ao notificar sucesso:', error.message);
+  }
+}
+
+function _notifyWithdrawalFailureVeo(transactionId, data = {}) {
+  try {
+    console.log(`❌ [VeoPag] Saque falhou: ${transactionId} | ${data.error_code || ''}`);
+
+    // Buscar saque pendente recente para reembolsar caso ainda não estornado
+    const tx = _findVeoTx(null, transactionId);
+    if (!tx) {
+      // Já foi processado anteriormente — só logar
+      return;
+    }
+
+    failWithdrawal(tx.id);
+    const user = getUser(tx.chatId);
+
+    clientBot.sendMessage(tx.chatId,
+      `❌ *SAQUE NÃO PROCESSADO* 💸\n\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `💰 *Valor:* R$ ${tx.amount.toFixed(2)}\n` +
+      `🔄 *Status:* Reembolsado\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `_O valor foi devolvido à sua conta._`,
+      { parse_mode: 'Markdown' }
+    ).catch(() => {});
+
+    adminBot.sendMessage(ADMIN_CHAT_ID,
+      `❌ *SAQUE VEOPAG FALHOU*\n` +
+      `👤 *Usuário:* ${user?.firstName || tx.chatId}\n` +
+      `💰 *Valor:* R$ ${tx.amount.toFixed(2)}\n` +
+      `🆔 *TxId:* ${transactionId}\n` +
+      `❌ *Motivo:* ${data.error_code || ''} ${data.error_message || ''}\n` +
+      `🔄 *Reembolsado:* Sim\n` +
+      `📅 ${nowBR()}`,
+      { parse_mode: 'Markdown' }
+    ).catch(() => {});
+  } catch (error) {
+    console.error('❌ [VeoPag] Erro ao notificar falha:', error.message);
   }
 }
 

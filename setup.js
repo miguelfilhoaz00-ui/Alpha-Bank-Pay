@@ -37,9 +37,12 @@ async function setup() {
   const appUrl = await question('🌐 URL do seu app (ex: https://seuapp.onrender.com): ');
   const panelPassword = await question('🔒 Senha do painel administrativo: ');
 
-  console.log('\n💳 GATEWAY DE PAGAMENTO\n');
+  console.log('\n💳 GATEWAYS DE PAGAMENTO\n');
 
-  const podpayKey = await question('🟦 PodPay API Key: ');
+  const podpayKey         = await question('🟦 PodPay API Key (depósitos): ');
+  const veopagClientId    = await question('🟢 VeoPag Client ID (saques): ');
+  const veopagClientSecret= await question('🟢 VeoPag Client Secret (saques): ');
+  const veopagSignature   = await question('🔏 VeoPag Webhook Signature (opcional): ');
 
   const envContent = `# ══════════════════════════════════
 # ALPHA BANK PAY - AUTO-GENERATED
@@ -56,9 +59,15 @@ PANEL_PASSWORD=${panelPassword}
 PORT=3000
 NODE_ENV=production
 
-# ── PODPAY (Gateway Único) ──
+# ── PODPAY (Depósitos) ──
 ${podpayKey ? `PODPAY_API_KEY=${podpayKey}` : '# PODPAY_API_KEY='}
 ${podpayKey ? `PODPAY_POSTBACK_URL=${appUrl}/webhook/podpay` : '# PODPAY_POSTBACK_URL='}
+
+# ── VEOPAG (Saques) ──
+${veopagClientId     ? `VEOPAG_CLIENT_ID=${veopagClientId}`         : '# VEOPAG_CLIENT_ID='}
+${veopagClientSecret ? `VEOPAG_CLIENT_SECRET=${veopagClientSecret}` : '# VEOPAG_CLIENT_SECRET='}
+${veopagClientId     ? `VEOPAG_WEBHOOK_URL=${appUrl}/webhook/veopag`: '# VEOPAG_WEBHOOK_URL='}
+${veopagSignature    ? `VEOPAG_WEBHOOK_SIGNATURE=${veopagSignature}`: '# VEOPAG_WEBHOOK_SIGNATURE='}
 
 # ── SEGURANÇA ──
 JWT_SECRET=${generateRandomString(32)}

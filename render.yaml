@@ -22,10 +22,20 @@ services:
       - key: PANEL_PASSWORD
         sync: false
 
-      # ——— PodPay ———
+      # ——— PodPay (Depósitos) ———
       - key: PODPAY_API_KEY
         sync: false
       - key: PODPAY_POSTBACK_URL
+        sync: false
+
+      # ——— VeoPag (Saques) ———
+      - key: VEOPAG_CLIENT_ID
+        sync: false
+      - key: VEOPAG_CLIENT_SECRET
+        sync: false
+      - key: VEOPAG_WEBHOOK_URL
+        sync: false
+      - key: VEOPAG_WEBHOOK_SIGNATURE
         sync: false
 
       # ——— Servidor ———

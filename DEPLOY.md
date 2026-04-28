@@ -42,9 +42,15 @@ PANEL_PASSWORD=SuaSenhaSuperSegura123!
 PORT=3000
 NODE_ENV=production
 
-# ── PODPAY (Gateway Único) ──
+# ── PODPAY (Depósitos) ──
 PODPAY_API_KEY=token_podpay
 PODPAY_POSTBACK_URL=https://alpha-bank-pay.onrender.com/webhook/podpay
+
+# ── VEOPAG (Saques) ──
+VEOPAG_CLIENT_ID=seu_client_id
+VEOPAG_CLIENT_SECRET=seu_client_secret
+VEOPAG_WEBHOOK_URL=https://alpha-bank-pay.onrender.com/webhook/veopag
+VEOPAG_WEBHOOK_SIGNATURE=opcional_segredo_estatico
 ```
 
 ### 5. Deploy!
@@ -146,12 +152,15 @@ O sistema já inclui:
 
 # Webhooks OK
 📥 [Webhook] /webhook/podpay configurado
+📥 [Webhook] /webhook/veopag configurado
 ```
 
 ## 🎯 Próximos Passos
 
-### 1. Configurar Webhook do Gateway
-- **PodPay**: Adicionar webhook no dashboard PodPay
+### 1. Configurar Webhooks dos Gateways
+- **PodPay** (depósitos): Adicionar webhook no dashboard PodPay → `https://alpha-bank-pay.onrender.com/webhook/podpay`
+- **VeoPag** (saques): Configurar Withdrawal webhook URL no dashboard VeoPag → `https://alpha-bank-pay.onrender.com/webhook/veopag`
+- **VeoPag IP whitelist**: Adicionar IP do Render em **Credenciais → IPs autorizados**
 
 ### 2. Personalizar Sistema
 - **Logo**: Substitua emoji 🏦 no código
@@ -174,7 +183,7 @@ O sistema já inclui:
 - ✅ Broadcast com templates profissionais
 - ✅ Auditoria e logs completos
 - ✅ Dashboard em tempo real
-- ✅ Gateway PIX integrado (PodPay)
+- ✅ Gateways PIX integrados: PodPay (depósitos) + VeoPag (saques)
 - ✅ Sistema de afiliados
 - ✅ Segurança empresarial
 
