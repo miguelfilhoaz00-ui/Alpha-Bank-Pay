@@ -241,7 +241,6 @@ tbody tr:hover td{background:rgba(255,255,255,.02);}
 
 /* ══ INDICADORES DE GATEWAY ══ */
 .gateway-badge{display:inline-block;background:var(--blue);color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;}
-.gateway-badge.xpaytech{background:var(--green);}
 
 /* ══ PAGINAÇÃO ══ */
 .pagination{display:flex;justify-content:center;gap:8px;margin-top:16px;}
@@ -1846,7 +1845,6 @@ async function configureUser(chatId) {
       api('GET', '/painel/api/gateways/available').catch(e => {
         console.error('Erro gateways:', e);
         return [
-          { id: 'XPayTech', name: 'XPayTech', active: true },
           { id: 'PodPay', name: 'PodPay', active: true }
         ];
       })
@@ -1985,8 +1983,8 @@ function showUserSettingsAdvanced(user, settings, gateway, gateways) {
 
 function showUserSettings(user, settings) {
   // Função legacy - redireciona para a versão avançada
-  showUserSettingsAdvanced(user, settings, { gateway: 'XPayTech' }, [
-    { id: 'XPayTech', name: 'XPayTech', active: true }
+  showUserSettingsAdvanced(user, settings, { gateway: 'PodPay' }, [
+    { id: 'PodPay', name: 'PodPay', active: true }
   ]);
 }
 
@@ -2011,7 +2009,7 @@ async function viewUserHistory(chatId) {
         type: 'deposit',
         amount: 100.00,
         status: 'completed',
-        gateway: 'XPayTech',
+        gateway: 'PodPay',
         createdAt: new Date().toISOString()
       },
       {
@@ -2019,7 +2017,7 @@ async function viewUserHistory(chatId) {
         type: 'withdrawal',
         amount: 50.00,
         status: 'completed',
-        gateway: 'XPayTech',
+        gateway: 'PodPay',
         createdAt: new Date(Date.now() - 24*60*60*1000).toISOString()
       }
     ];

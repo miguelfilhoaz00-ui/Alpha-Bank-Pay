@@ -11,7 +11,7 @@ const { getAll, toggle, updateRange, ready: configReady } = require('./src/confi
 const stats                                               = require('./src/stats');
 const { getUser, getUserByReferralCode, upsertUser, setPixKey, setGatewayOverride, setBanned, setDepositFee, setCommissionRate, setReferralFee, setReferredBy, getAllUsers, getAffiliates, getManagers, setReferrer } = require('./src/users');
 const { createDepositTx, completeDeposit, createWithdrawalTx, completeWithdrawal, failWithdrawal, adminAdjust, getUserTransactions, getAllTransactions } = require('./src/wallet');
-const xpaytech                                            = require('./src/providers/xpaytech');
+const podpay                                              = require('./src/providers/podpay');
 
 // ==========================
 // BOTS
@@ -244,7 +244,7 @@ function getPixTypeEmoji(type) {
   return emojis[type] || '🔑';
 }
 
-// Obter documento (CPF/CNPJ) do usuário ou chave para XPayTech
+// Obter documento (CPF/CNPJ) do usuário ou chave para gateway
 function getDocumentForWithdrawal(user, pixKey, pixKeyType) {
   // Se a chave é CPF ou CNPJ, usar ela como documento
   if (pixKeyType === 'CPF') {
@@ -1039,25 +1039,12 @@ clientBot.on('callback_query', async (query) => {
 
       let result;
 
-      // Usar gateway determinado automaticamente pela lógica FIFO
-      switch (withdrawal.gateway) {
-        case 'XPayTech':
-          result = await xpaytech.withdraw(chatId, pending.amount, pixKey, pixKeyType, document);
-          break;
-
-        case 'PodPay':
-          const podpay = require('./src/providers/podpay');
-          const podpayResult = await podpay.createWithdrawal(pixKey, pending.amount, pixKeyType, withdrawal.txId);
-          if (podpayResult.success) {
-            result = { orderId: podpayResult.data.orderId, id: podpayResult.data.id };
-          } else {
-            throw new Error(podpayResult.error);
-          }
-          break;
-
-        default:
-          result = await xpaytech.withdraw(chatId, pending.amount, pixKey, pixKeyType, document);
-          break;
+      // Processar saque via PodPay (gateway único)
+      const podpayResult = await podpay.createWithdrawal(pixKey, pending.amount, pixKeyType, withdrawal.txId);
+      if (podpayResult.success) {
+        result = { orderId: podpayResult.data.orderId, id: podpayResult.data.id };
+      } else {
+        throw new Error(podpayResult.error);
       }
 
       completeWithdrawal(withdrawal.txId, result.orderId);
@@ -1084,7 +1071,7 @@ clientBot.on('callback_query', async (query) => {
       ).catch(() => {});
 
     } catch (err) {
-      console.error('❌ [Saque] Erro XPayTech:', err.response?.data || err.message);
+      console.error('❌ [Saque] Erro PodPay:', err.response?.data || err.message);
       failWithdrawal(withdrawal.txId); // estorna saldo automaticamente
 
       clientBot.editMessageText(
@@ -2053,7 +2040,7 @@ app.post('/painel/api/user/:chatId/set-gateway', panelAuth, (req, res) => {
   const { chatId } = req.params;
   const { gateway } = req.body;
 
-  const validGateways = ['XPayTech', 'PodPay'];
+  const validGateways = ['PodPay'];
 
   if (!validGateways.includes(gateway)) {
     return res.status(400).json({ error: 'Gateway inválido' });
@@ -2086,7 +2073,7 @@ app.get('/painel/api/user/:chatId/gateway', panelAuth, (req, res) => {
     }
 
     res.json({
-      gateway: user.preferred_gateway || 'XPayTech',
+      gateway: user.preferred_gateway || 'PodPay',
       withdrawalGateway: user.preferred_withdrawal_gateway || null
     });
   } catch (error) {
@@ -2112,7 +2099,6 @@ app.post('/painel/api/users/:chatId/gateway', panelAuth, (req, res) => {
 // Listar gateways disponíveis
 app.get('/painel/api/gateways/available', panelAuth, (req, res) => {
   const gateways = [
-    { id: 'XPayTech', name: 'XPayTech', active: true },
     { id: 'PodPay', name: 'PodPay', active: true }
   ];
 
@@ -2289,25 +2275,6 @@ app.post('/webhook/podpay', (req, res) => {
   } catch (e) {
     console.error('❌ [PodPay] Erro no webhook:', e.message);
   }
-  res.sendStatus(200);
-});
-
-app.post('/webhook/xpaytech', (req, res) => {
-  console.log('📥 [XPayTech] Webhook:', JSON.stringify(req.body));
-  try {
-    const body       = req.body?.data || req.body;
-    const externalId = body.externalId;
-    const status     = body.status;
-
-    // Ignora pay-outs (saques), processa apenas pay-ins (depósitos)
-    if (externalId && externalId.startsWith('xpay_out_')) {
-      console.log('ℹ️  [XPayTech] Webhook de pay-out ignorado:', externalId);
-      return res.sendStatus(200);
-    }
-
-    if (status === 'FINISHED') _notifyPayment(externalId, { txId: body.id });
-    if (status === 'CANCELLED' || status === 'TIMEOUT' || status === 'REVERSED') _notifyFailed(externalId);
-  } catch (e) { console.error('[XPayTech] Erro:', e.message); }
   res.sendStatus(200);
 });
 

@@ -57,7 +57,7 @@ db.exec(`
     amount REAL,
     pixKey TEXT,
     status TEXT DEFAULT 'pending',
-    gateway TEXT DEFAULT 'XPayTech',
+    gateway TEXT DEFAULT 'PodPay',
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     admin_action_at TEXT NULL,
     admin_notes TEXT,
@@ -128,12 +128,12 @@ const migrations = [
   `ALTER TABLE users ADD COLUMN commissionRate  REAL    DEFAULT 0`,
   `ALTER TABLE users ADD COLUMN referralFee     REAL    DEFAULT 0`,
   `ALTER TABLE users ADD COLUMN last_activity   TEXT    DEFAULT CURRENT_TIMESTAMP`,
-  `ALTER TABLE users ADD COLUMN preferred_gateway TEXT  DEFAULT 'XPayTech'`,
+  `ALTER TABLE users ADD COLUMN preferred_gateway TEXT  DEFAULT 'PodPay'`,
   `ALTER TABLE users ADD COLUMN preferred_withdrawal_gateway TEXT DEFAULT NULL`,
   `ALTER TABLE transactions ADD COLUMN fee        REAL DEFAULT 0`,
   `ALTER TABLE transactions ADD COLUMN fromChatId TEXT DEFAULT NULL`,
   `ALTER TABLE transactions ADD COLUMN metadata    TEXT DEFAULT NULL`,
-  `ALTER TABLE transaction_controls ADD COLUMN gateway TEXT DEFAULT 'XPayTech'`,
+  `ALTER TABLE transaction_controls ADD COLUMN gateway TEXT DEFAULT 'PodPay'`,
 ];
 for (const sql of migrations) {
   try { db.exec(sql); } catch (e) { /* coluna já existe — ignorar */ }

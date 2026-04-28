@@ -36,18 +36,13 @@ CLIENT_BOT_TOKEN=SEU_TOKEN_BOT_CLIENTE
 ADMIN_BOT_TOKEN=SEU_TOKEN_BOT_ADMIN  
 ADMIN_CHAT_ID=SEU_CHAT_ID
 
-# ── XPAYTECH (Principal) ──
-XPAYTECH_USERNAME=seu_usuario_xpay
-XPAYTECH_PASSWORD=sua_senha_xpay
-XPAYTECH_WEBHOOK_URL=https://alpha-bank-pay.onrender.com/webhook/xpaytech
-
 # ── CONFIGURAÇÕES ──
 APP_URL=https://alpha-bank-pay.onrender.com
 PANEL_PASSWORD=SuaSenhaSuperSegura123!
 PORT=3000
 NODE_ENV=production
 
-# ── OUTROS GATEWAYS (Opcionais) ──
+# ── PODPAY (Gateway Único) ──
 PODPAY_API_KEY=token_podpay
 PODPAY_POSTBACK_URL=https://alpha-bank-pay.onrender.com/webhook/podpay
 ```
@@ -150,13 +145,12 @@ O sistema já inclui:
 🗄️ [DB] Banco de dados inicializado
 
 # Webhooks OK
-📥 [Webhook] /webhook/xpaytech configurado
+📥 [Webhook] /webhook/podpay configurado
 ```
 
 ## 🎯 Próximos Passos
 
-### 1. Configurar Webhooks dos Gateways
-- **XPayTech**: Configurar URL no painel XPay
+### 1. Configurar Webhook do Gateway
 - **PodPay**: Adicionar webhook no dashboard PodPay
 
 ### 2. Personalizar Sistema
@@ -180,7 +174,7 @@ O sistema já inclui:
 - ✅ Broadcast com templates profissionais
 - ✅ Auditoria e logs completos
 - ✅ Dashboard em tempo real
-- ✅ Múltiplos gateways PIX
+- ✅ Gateway PIX integrado (PodPay)
 - ✅ Sistema de afiliados
 - ✅ Segurança empresarial
 

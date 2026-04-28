@@ -24,7 +24,7 @@ Sistema completo de pagamentos PIX via Telegram com painel administrativo profis
 - **Sistema de Aprovações**: Automático ou manual por valor/perfil
 - **Rate Limiting**: Proteção contra spam e ataques
 - **Auditoria Total**: Rastreamento completo para compliance
-- **Múltiplos Gateways**: XPayTech, PodPay
+- **Gateway PIX**: PodPay
 
 ## 🚀 Deploy Rápido
 
@@ -43,13 +43,9 @@ CLIENT_BOT_TOKEN=seu_token_do_bot_cliente
 ADMIN_BOT_TOKEN=seu_token_do_bot_admin
 ADMIN_CHAT_ID=seu_chat_id_admin
 
-# XPayTech (Gateway Principal)
-XPAYTECH_USERNAME=seu_usuario
-XPAYTECH_PASSWORD=sua_senha
-XPAYTECH_WEBHOOK_URL=https://seuapp.onrender.com/webhook/xpaytech
-
-# Outros Gateways (Opcionais)
-PODPAY_TOKEN=token_podpay
+# PodPay (Gateway Único)
+PODPAY_API_KEY=sua_api_key_podpay
+PODPAY_POSTBACK_URL=https://seuapp.onrender.com/webhook/podpay
 
 # Configurações
 APP_URL=https://seuapp.onrender.com

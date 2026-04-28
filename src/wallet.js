@@ -183,7 +183,7 @@ function getGatewayForWithdrawal(chatId, withdrawalAmount) {
 
   // Simular qual gateway deve ser usado aplicando FIFO
   let remainingToWithdraw = totalWithdrawn + withdrawalAmount;
-  let targetGateway = 'XPayTech'; // fallback
+  let targetGateway = 'PodPay'; // fallback
 
   for (const deposit of deposits) {
     console.log(`💰 [FIFO] Depósito: R$${deposit.amount.toFixed(2)} via ${deposit.gateway} em ${deposit.completedAt}`);

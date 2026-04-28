@@ -28,14 +28,6 @@ services:
       - key: PODPAY_POSTBACK_URL
         sync: false
 
-      # ——— XPayTech ———
-      - key: XPAYTECH_USERNAME
-        sync: false
-      - key: XPAYTECH_PASSWORD
-        sync: false
-      - key: XPAYTECH_WEBHOOK_URL
-        sync: false
-
       # ——— Servidor ———
       - key: PORT
         value: "3000"

@@ -32,19 +32,14 @@ async function setup() {
   const adminBotToken = await question('🛡️ Token do Bot Admin (@BotFather): ');
   const adminChatId = await question('👤 Seu Chat ID (@userinfobot): ');
 
-  console.log('\n🏛️ CONFIGURAÇÃO XPAYTECH (Gateway Principal)\n');
-
-  const xpayUsername = await question('👤 XPayTech Username: ');
-  const xpayPassword = await question('🔑 XPayTech Password: ');
-
   console.log('\n⚙️ CONFIGURAÇÃO GERAL\n');
 
   const appUrl = await question('🌐 URL do seu app (ex: https://seuapp.onrender.com): ');
   const panelPassword = await question('🔒 Senha do painel administrativo: ');
 
-  console.log('\n💳 GATEWAYS OPCIONAIS (Enter para pular)\n');
+  console.log('\n💳 GATEWAY DE PAGAMENTO\n');
 
-  const podpayKey = await question('🟦 PodPay API Key (opcional): ');
+  const podpayKey = await question('🟦 PodPay API Key: ');
 
   const envContent = `# ══════════════════════════════════
 # ALPHA BANK PAY - AUTO-GENERATED
@@ -55,18 +50,13 @@ CLIENT_BOT_TOKEN=${clientBotToken}
 ADMIN_BOT_TOKEN=${adminBotToken}
 ADMIN_CHAT_ID=${adminChatId}
 
-# ── XPAYTECH (Gateway Principal) ──
-XPAYTECH_USERNAME=${xpayUsername}
-XPAYTECH_PASSWORD=${xpayPassword}
-XPAYTECH_WEBHOOK_URL=${appUrl}/webhook/xpaytech
-
 # ── CONFIGURAÇÕES GERAIS ──
 APP_URL=${appUrl}
 PANEL_PASSWORD=${panelPassword}
 PORT=3000
 NODE_ENV=production
 
-# ── OUTROS GATEWAYS ──
+# ── PODPAY (Gateway Único) ──
 ${podpayKey ? `PODPAY_API_KEY=${podpayKey}` : '# PODPAY_API_KEY='}
 ${podpayKey ? `PODPAY_POSTBACK_URL=${appUrl}/webhook/podpay` : '# PODPAY_POSTBACK_URL='}
 
