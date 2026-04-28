@@ -2626,6 +2626,35 @@ app.post('/bot/telegram', (req, res) => {
 app.get('/',     (req, res) => res.json({ status: 'ok', bot: 'Alpha Bank Pay', version: '2.0.0' }));
 app.get('/ping', (req, res) => res.status(200).send('pong'));
 
+// Teste de integração VeoPag — protegido pelo panelAuth
+app.get('/painel/api/veopag/test', panelAuth, async (req, res) => {
+  const result = { credentials: null, balance: null, ip: null };
+  try {
+    const r = await axios.get('https://api.ipify.org?format=json', { timeout: 5000 });
+    result.ip = r.data?.ip;
+  } catch (_) {}
+
+  if (!process.env.VEOPAG_CLIENT_ID || !process.env.VEOPAG_CLIENT_SECRET) {
+    return res.status(400).json({
+      ok: false,
+      error: 'VEOPAG_CLIENT_ID / VEOPAG_CLIENT_SECRET não configurados no Render',
+      ...result
+    });
+  }
+
+  const balance = await veopag.getBalance();
+  result.balance = balance;
+  result.credentials = balance.success ? 'OK' : 'FAIL';
+
+  res.json({
+    ok: balance.success,
+    message: balance.success
+      ? '✅ VeoPag OK — credenciais válidas e IP autorizado'
+      : '❌ Falha — verifique credenciais e whitelist de IP',
+    ...result
+  });
+});
+
 // IP de saída do servidor (para whitelist da VeoPag)
 app.get('/whoami', async (req, res) => {
   try {
