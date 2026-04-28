@@ -2626,6 +2626,25 @@ app.post('/bot/telegram', (req, res) => {
 app.get('/',     (req, res) => res.json({ status: 'ok', bot: 'Alpha Bank Pay', version: '2.0.0' }));
 app.get('/ping', (req, res) => res.status(200).send('pong'));
 
+// IP de saída do servidor (para whitelist da VeoPag)
+app.get('/whoami', async (req, res) => {
+  try {
+    const [r1, r2, r3] = await Promise.allSettled([
+      axios.get('https://api.ipify.org?format=json',   { timeout: 5000 }),
+      axios.get('https://ifconfig.me/ip',              { timeout: 5000 }),
+      axios.get('https://icanhazip.com',               { timeout: 5000 })
+    ]);
+    res.json({
+      ipify:      r1.status === 'fulfilled' ? r1.value.data?.ip : null,
+      ifconfig:   r2.status === 'fulfilled' ? String(r2.value.data).trim() : null,
+      icanhazip:  r3.status === 'fulfilled' ? String(r3.value.data).trim() : null,
+      hint:       'Use este IP em dashboard.veopag.com → Credenciais → IPs autorizados'
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/webhook-info', async (req, res) => {
   try {
     const r = await axios.get(`https://api.telegram.org/bot${process.env.CLIENT_BOT_TOKEN}/getWebhookInfo`);
